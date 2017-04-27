@@ -1,8 +1,13 @@
+import os.path
+
 import pygments
 from pygments.lexers import PythonLexer
 from pygments.formatters import HtmlFormatter
 
 class CodeHtmlFormatter(HtmlFormatter):
+    def __init__(self, *args, output_filename=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.output_filename = output_filename
 
     def wrap(self, source, outfile):
         return self._wrap_html(source)
@@ -15,8 +20,19 @@ class CodeHtmlFormatter(HtmlFormatter):
             yield is_code, source_line
         yield 0, self.html_foot
     
+    
     html_foot = "</body></html>"
-    html_head = """
+    @property
+    def html_head(self):
+        # Basically assuming that the .css and .js files that we need to include
+        # are in the same place as this script that we're running. Not really
+        # entirely clear that this is the correct thing to do.
+        output_dir = os.path.dirname(self.output_filename)
+        path_to_here = os.path.relpath(__file__, start=output_dir)
+        include_dir = os.path.dirname(path_to_here)
+        annotate_js = os.path.join(include_dir, 'annotate.js')
+        annotate_css = os.path.join(include_dir, 'annotate.css')
+        html_head = """
 <!DOCTYPE>
 <html>
 <head>
@@ -30,20 +46,30 @@ class CodeHtmlFormatter(HtmlFormatter):
   
   <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.11.0/styles/default.min.css">
   <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.11.0/highlight.min.js"></script>
-  <script src="annotate.js"></script>
-  <link rel="stylesheet" href="annotate.css">
+  <script src="{0}"></script>
+  <link rel="stylesheet" href="{1}">
   </head>
   <body>
-"""
+""".format(annotate_js, annotate_css)
+        return html_head
 
-if __name__ == '__main__':
-    with open('test.py', 'r') as source_file:
+import click
+
+@click.command()
+@click.argument('input_filename')
+@click.argument('output_filename')
+def highlight(input_filename, output_filename):
+    with open(input_filename, 'r') as source_file:
         source_code = source_file.read()
         lexer = PythonLexer()
         formatter = CodeHtmlFormatter(
             full=False, 
             linespans="code-line",
             linenos=False,
+            output_filename=output_filename
             )
-        with open('output.html', 'w') as output_file:
+        with open(output_filename, 'w') as output_file:
             output = pygments.highlight(source_code, lexer, formatter, output_file)
+
+if __name__ == '__main__':
+    highlight()

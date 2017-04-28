@@ -1,5 +1,5 @@
 /* global $ showdown hljs Flask */
-function add_annotation(){
+function add_annotation($code_line, content){
     var $annotation = $(`
         <div class="annotation">
             <div class="annotation-toolbar">
@@ -9,10 +9,13 @@ function add_annotation(){
             <textarea class="annotation-input" />
             <div class="annotation-output"></div>
         </div>`);
-    $(this).before($annotation);
+    $code_line.before($annotation);
     $annotation.find('.delete-annotation').click(delete_annotation);
     var $annot_input = $annotation.find('.annotation-input');
+    $annot_input.val(content);
     var $annot_output = $annotation.find('.annotation-output');
+
+    // Set up the keyup event to format the common-mark into HTML
     $annot_input.keyup(function(){
         var converter = new showdown.Converter();
         var html = converter.makeHtml($annot_input.val());
@@ -22,6 +25,9 @@ function add_annotation(){
         }
         );
     });
+    // Trigger that event immediately, we could skip this if 'content' is
+    // blank (in particular for a 'new_annotation').
+    $annot_input.trigger('keyup');
     $annot_input.keydown(function(event){
         var keyCode = event.keyCode || event.which;
 
@@ -75,8 +81,13 @@ function get_annotations(){
       url: Flask.url_for('get_annotations'),
       data: { 'document': 'whatever' },
       success: function(data){
-          console.log(data);
-          $('body').append(data);
+          $.each(data, function(index, annotation){
+            console.log(annotation);
+            console.log('#code-line-' + annotation['line-number']);
+            var $code_line = $('#code-line-' + annotation['line-number']);
+            var $code_line_pre = $code_line.closest('.code-line-pre');
+            add_annotation($code_line_pre, annotation['content']);
+          });
       },
       error: function(data){
           console.log('something went wrong');
@@ -84,7 +95,11 @@ function get_annotations(){
     });
 }
 
+function add_new_annotation(){
+    add_annotation($(this), "");
+}
+
 $(document).ready(function(){
-    $('.code-line-pre').click(add_annotation);
+    $('.code-line-pre').click(add_new_annotation);
     get_annotations();
 });

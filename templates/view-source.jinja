@@ -1,0 +1,23 @@
+{% extends "base.jinja" %}
+{% set active_page = "view-source" %}
+
+{% block page_css %}
+    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.11.0/styles/default.min.css">
+    <link rel="stylesheet" href="{{url_for('static', filename='annotate.css')}}">
+{% endblock page_css %}
+
+{% block main_content %}
+    {{source}}
+{% endblock main_content %}
+
+{% block page_scripts %}
+  <script
+    src="https://code.jquery.com/jquery-3.2.1.min.js"
+    integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4="
+    crossorigin="anonymous"></script>
+
+  <script src="https://cdn.rawgit.com/showdownjs/showdown/1.6.3/dist/showdown.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.11.0/highlight.min.js"></script>
+  <script src="{{url_for('static', filename='annotate.js')}}"></script>
+
+{% endblock page_scripts%}

@@ -1,4 +1,4 @@
-/* global $ showdown hljs */
+/* global $ showdown hljs Flask */
 function add_annotation(){
     var $annotation = $(`
         <div class="annotation">
@@ -27,15 +27,15 @@ function add_annotation(){
 
         if (keyCode == 9) {
             event.preventDefault();
-            
+
             var textarea = this;
             var start = textarea.selectionStart;
             var end = textarea.selectionEnd;
             var replacement = "    ";
 
             // set textarea value to: text before caret + tab + text after caret
-            
-            textarea.value = 
+
+            textarea.value =
                 textarea.value.substring(0, start)
                 + replacement
                 + textarea.value.substring(end)
@@ -60,7 +60,7 @@ function add_annotation(){
              */
         }
         });
-    
+
     $annotation.find('.toggle-annotation-editor').click(function(){
         $annot_input.toggle();
     });
@@ -70,6 +70,21 @@ function delete_annotation(){
     $(this).closest('.annotation').remove();
 }
 
+function get_annotations(){
+    $.ajax({type: "POST",
+      url: Flask.url_for('get_annotations'),
+      data: { 'document': 'whatever' },
+      success: function(data){
+          console.log(data);
+          $('body').append(data);
+      },
+      error: function(data){
+          console.log('something went wrong');
+      }
+    });
+}
+
 $(document).ready(function(){
     $('.code-line-pre').click(add_annotation);
+    get_annotations();
 });

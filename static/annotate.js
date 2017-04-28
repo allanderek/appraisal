@@ -1,4 +1,25 @@
 /* global $ showdown hljs Flask */
+
+function save_annotation(){
+    var textarea = this;
+    var $annotation = $(textarea).closest('.annotation');
+    var data = {
+        'filename': source_filename,
+        'line-number': $annotation.attr('code-line'),
+        'content': textarea.value
+        };
+    $.ajax({type: "POST",
+      url: Flask.url_for('save_annotation'),
+      data: data,
+      success: function(data){
+          console.log('Successfully saved the annotation');
+      },
+      error: function(data){
+          console.log('something went wrong');
+      }
+    });
+}
+
 function add_annotation($code_line, content){
     var $annotation = $(`
         <div class="annotation">
@@ -10,6 +31,7 @@ function add_annotation($code_line, content){
             <div class="annotation-output"></div>
         </div>`);
     $code_line.before($annotation);
+    $annotation.attr('code-line', $code_line.attr('id'));
     $annotation.find('.delete-annotation').click(delete_annotation);
     var $annot_input = $annotation.find('.annotation-input');
     $annot_input.val(content);
@@ -67,6 +89,8 @@ function add_annotation($code_line, content){
         }
         });
 
+    $annot_input.blur(save_annotation);
+
     $annotation.find('.toggle-annotation-editor').click(function(){
         $annot_input.toggle();
     });
@@ -84,11 +108,8 @@ function get_annotations(){
       data: { 'filename': source_filename },
       success: function(data){
           $.each(data, function(index, annotation){
-            console.log(annotation);
-            console.log('#code-line-' + annotation['line-number']);
-            var $code_line = $('#code-line-' + annotation['line-number']);
-            var $code_line_pre = $code_line.closest('.code-line-pre');
-            add_annotation($code_line_pre, annotation['content']);
+            var $code_line = $('#' + annotation['line-number']);
+            add_annotation($code_line, annotation['content']);
           });
       },
       error: function(data){
@@ -102,6 +123,6 @@ function add_new_annotation(){
 }
 
 $(document).ready(function(){
-    $('.code-line-pre').click(add_new_annotation);
+    $('.code-line-container').click(add_new_annotation);
     get_annotations();
 });

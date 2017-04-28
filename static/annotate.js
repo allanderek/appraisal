@@ -76,10 +76,12 @@ function delete_annotation(){
     $(this).closest('.annotation').remove();
 }
 
+var source_filename = '';
+
 function get_annotations(){
     $.ajax({type: "POST",
       url: Flask.url_for('get_annotations'),
-      data: { 'document': 'whatever' },
+      data: { 'filename': source_filename },
       success: function(data){
           $.each(data, function(index, annotation){
             console.log(annotation);

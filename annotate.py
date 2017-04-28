@@ -42,31 +42,72 @@ def highlight(input_filename, output_filename):
         with open(output_filename, 'w') as output_file:
             output = pygments.highlight(source_code, lexer, formatter, output_file)
 
+import tinydb
+
+database_filename = 'generated/play.json'
+database = tinydb.TinyDB(database_filename)
+
+def has_extension(filename, extension):
+    ext = os.path.splitext(filename)[-1].lower()
+    return ext == extension
+
+def add_file_to_database(filename):
+    database.insert({'filename': filename,
+                     'annotations': [{ 'line-number': '3',
+                     'content': "# Mighty mouse is here."}]
+                    })
+
+@appraisal.command()
+def reset_database():
+    database.purge()
+
+    file_directories = ['tests/']
+    for file_directory in file_directories:
+        for dirname, _dirs, files in os.walk(file_directory):
+            for filename in files:
+                filepath = os.path.join(dirname, filename)
+                if os.path.isfile(filepath) and has_extension(filename, '.py'):
+                    add_file_to_database(filename)
+
+
 import flask
 import flask_jsglue
 
 application = flask.Flask(__name__)
 jsglue = flask_jsglue.JSGlue(application)
 
-@application.route("/view-source/", methods=['GET'])
-def view_source():
-    with open('tests/example.py', 'r') as source_file:
-        source_code = source_file.read()
-    lexer = PythonLexer()
-    formatter = CodeHtmlFormatter(
-        full=False,
-        linespans="code-line",
-        linenos=False,
-        )
-    source = pygments.highlight(source_code, lexer, formatter)
+
+class SourceCode(object):
+    def __init__(self, filename):
+        self.filename = filename
+        with open('tests/{}'.format(filename), 'r') as source_file:
+            source_code = source_file.read()
+        lexer = PythonLexer()
+        formatter = CodeHtmlFormatter(
+            full=False,
+            linespans="code-line",
+            linenos=False,
+            )
+        self.highlighted_source = pygments.highlight(source_code, lexer, formatter)
+
+@application.route("/view-source/<filename>", methods=['GET'])
+def view_source(filename):
+    source = SourceCode(filename)
     return flask.render_template('view-source.jinja', source=source)
 
 @application.route("/get-annotations", methods=['POST'])
 def get_annotations():
-    annotations = [
-        { 'line-number': '7',
-          'content': "# Here I am to save the day." }
-        ]
+    filename = flask.request.form.get('filename', None)
+    if not filename:
+        annotations = []
+    else:
+        query = tinydb.Query()
+        files = database.search(query.filename == filename)
+        if not files:
+            annotations = []
+        else:
+            file = files[0]
+            annotations = file['annotations']
     return flask.jsonify(annotations)
 
 @appraisal.command()
@@ -74,7 +115,7 @@ def runserver():
     extra_dirs = ['static/', 'templates/']
     extra_files = extra_dirs[:]
     for extra_dir in extra_dirs:
-        for dirname, dirs, files in os.walk(extra_dir):
+        for dirname, _dirs, files in os.walk(extra_dir):
             for filename in files:
                 filename = os.path.join(dirname, filename)
                 if os.path.isfile(filename):

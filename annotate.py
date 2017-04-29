@@ -133,7 +133,15 @@ def save_annotation():
         return bad_request_response(message='You must provide appropriate data.')
 
     query = tinydb.Query()
-    database.update({'content': content}, (query.filename == filename) & (query['line-number'] == line_number))
+    query = (query.filename == filename) & (query['line-number'] == line_number)
+    if database.contains(query):
+        database.update({'content': content}, query)
+    else:
+        database.insert({
+            'filename': filename,
+            'line-number': line_number,
+            'content': content
+        })
     return success_response()
 
 @appraisal.command()

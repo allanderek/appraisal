@@ -1,5 +1,24 @@
 /* global $ showdown hljs Flask */
 
+function delete_annotation(){
+    var $annotation = $(this).closest('.annotation');
+    var data = {
+        'filename': source_filename,
+        'line-number': $annotation.attr('code-line'),
+        };
+    $.ajax({type: "POST",
+      url: Flask.url_for('delete_annotation'),
+      data: data,
+      success: function(data){
+          console.log('Successfully deleted the annotation');
+          $annotation.remove();
+      },
+      error: function(data){
+          console.log('something went wrong');
+      }
+    });
+}
+
 function save_annotation(){
     var textarea = this;
     var $annotation = $(textarea).closest('.annotation');
@@ -96,9 +115,6 @@ function add_annotation($code_line, content){
     });
 }
 
-function delete_annotation(){
-    $(this).closest('.annotation').remove();
-}
 
 var source_filename = '';
 

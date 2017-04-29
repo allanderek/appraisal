@@ -123,6 +123,7 @@ def get_annotations():
     annotations = database.search(query.filename == filename)
     return flask.jsonify(annotations)
 
+
 @application.route("/save-annotation", methods=['POST'])
 def save_annotation():
     filename = flask.request.form.get('filename', None)
@@ -142,6 +143,23 @@ def save_annotation():
             'line-number': line_number,
             'content': content
         })
+    return success_response()
+
+@application.route("/delete-annotation", methods=['POST'])
+def delete_annotation():
+    # TODO: In general we need to implement CSRF
+    # Here we are assuming you are deleting the annotation, but we are not
+    # checking that the content is the same, that is, that we have not updated
+    # the content from elsewhere.
+    filename = flask.request.form.get('filename', None)
+    line_number = flask.request.form.get('line-number', None)
+
+    if None in [filename, line_number]:
+        return bad_request_response(message='You must provide appropriate data.')
+
+    query = tinydb.Query()
+    query = (query.filename == filename) & (query['line-number'] == line_number)
+    database.remove(query)
     return success_response()
 
 @appraisal.command()

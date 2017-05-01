@@ -108,6 +108,11 @@ class SourceCode(object):
             )
         self.highlighted_source = pygments.highlight(source_code, lexer, formatter)
 
+@application.route("/", methods=['GET'])
+def homepage():
+    return flask.render_template('welcome.jinja')
+
+
 @application.route("/view-source/<filename>", methods=['GET'])
 def view_source(filename):
     source = SourceCode(filename)

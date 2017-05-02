@@ -1,8 +1,12 @@
 import os.path
+import base64
 
 import pygments
 from pygments.lexers import PythonLexer
 from pygments.formatters import HtmlFormatter
+
+import requests
+
 
 class CodeHtmlFormatter(HtmlFormatter):
     def __init__(self, *args, output_filename=None, **kwargs):
@@ -97,10 +101,11 @@ def success_response(results=None):
     return flask.jsonify(results)
 
 class SourceCode(object):
-    def __init__(self, filename):
+    def __init__(self, filename, source_code=None):
         self.filename = filename
-        with open('tests/{}'.format(filename), 'r') as source_file:
-            source_code = source_file.read()
+        if source_code is None:
+            with open('tests/{}'.format(filename), 'r') as source_file:
+                source_code = source_file.read()
         lexer = PythonLexer()
         formatter = CodeHtmlFormatter(
             full=False,
@@ -110,12 +115,25 @@ class SourceCode(object):
 
 @application.route("/", methods=['GET'])
 def homepage():
-    return flask.render_template('welcome.jinja')
+    repository_url = 'https://api.github.com/repos/kennethreitz/requests'
+    gh_resp = requests.get('{0}/git/trees/master'.format(repository_url))
+    master = gh_resp.json()
+    gh_resp = requests.get(
+        '{0}/git/trees/{1}'.format(repository_url, master['sha']),
+        params={'recursive': 1})
+    tree = gh_resp.json()
+    return flask.render_template('welcome.jinja', tree=tree)
 
 
-@application.route("/view-source/<filename>", methods=['GET'])
-def view_source(filename):
-    source = SourceCode(filename)
+@application.route("/view-source/<owner>/<repo>/<path:filepath>", methods=['GET'])
+def view_source(owner, repo, filepath):
+    filename = os.path.basename(filepath)
+    repo_url = 'https://api.github.com/repos/kennethreitz/requests'
+    gh_resp = requests.get('{0}/contents/{1}'.format(repo_url, filepath))
+    gh_json = gh_resp.json()
+    source_contents = gh_json['content']
+    source_code = base64.b64decode(source_contents)
+    source = SourceCode(filename, source_code=source_code)
     return flask.render_template('view-source.jinja', source=source)
 
 @application.route("/get-annotations", methods=['POST'])

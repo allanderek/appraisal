@@ -7,6 +7,20 @@
 {% block main_content %}
 <h1>Welcome to Appraisal Board</h1>
 
+<ul>
+    {% for file_info in tree['tree'] %}
+        <li>
+            <a href="{{url_for('view_source',
+                               owner='kennethreitz',
+                               repo='requests',
+                               filepath=file_info['path'])}}">
+                {{file_info['path']}}
+            </a>
+        </li>
+    {% endfor %}
+</ul>
+
+
 {% endblock main_content %}
 
 {% block page_scripts %}

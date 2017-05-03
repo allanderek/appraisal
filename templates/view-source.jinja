@@ -20,6 +20,10 @@
   <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.11.0/highlight.min.js"></script>
   <script src="{{url_for('static', filename='annotate.js')}}"></script>
   <script type='text/javascript'>
-      source_filename = "{{source.filename}}";
+      var source_information = {
+        'repo_owner': "{{source.repo_owner}}",
+        'repo': "{{source.repo}}",
+        'filepath': "{{source.filepath}}"
+      };
   </script>
 {% endblock page_scripts %}

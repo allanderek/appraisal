@@ -1,11 +1,10 @@
-/* global $ showdown hljs Flask */
+/* global $ showdown hljs Flask source_information*/
 
 function delete_annotation(){
     var $annotation = $(this).closest('.annotation');
-    var data = {
-        'filename': source_filename,
-        'line-number': $annotation.attr('code-line'),
-        };
+    var data = source_information;
+    data.line_number = $annotation.attr('code-line');
+
     $.ajax({type: "POST",
       url: Flask.url_for('delete_annotation'),
       data: data,
@@ -22,11 +21,9 @@ function delete_annotation(){
 function save_annotation(){
     var textarea = this;
     var $annotation = $(textarea).closest('.annotation');
-    var data = {
-        'filename': source_filename,
-        'line-number': $annotation.attr('code-line'),
-        'content': textarea.value
-        };
+    var data = source_information;
+    data.line_number = $annotation.attr('code-line');
+    data.content = textarea.value;
     $.ajax({type: "POST",
       url: Flask.url_for('save_annotation'),
       data: data,
@@ -121,10 +118,10 @@ var source_filename = '';
 function get_annotations(){
     $.ajax({type: "POST",
       url: Flask.url_for('get_annotations'),
-      data: { 'filename': source_filename },
+      data: source_information,
       success: function(data){
           $.each(data, function(index, annotation){
-            var $code_line = $('#' + annotation['line-number']);
+            var $code_line = $('#' + annotation['line_number']);
             add_annotation($code_line, annotation['content']);
           });
       },

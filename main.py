@@ -56,29 +56,18 @@ def has_extension(filename, extension):
     ext = os.path.splitext(filename)[-1].lower()
     return ext == extension
 
-def add_file_to_database(filename):
-    database.insert({'filename': filename,
-                     'line-number': 'code-line-3',
-                     'content': "# Mighty mouse is here."
-                    })
-
 @appraisal.command()
 def reset_database():
     database.purge()
 
-    file_directories = ['tests/']
-    for file_directory in file_directories:
-        for dirname, _dirs, files in os.walk(file_directory):
-            for filename in files:
-                filepath = os.path.join(dirname, filename)
-                if os.path.isfile(filepath) and has_extension(filename, '.py'):
-                    add_file_to_database(filename)
-
-
 import flask
 import flask_jsglue
+import flask_wtf
+from wtforms import StringField
+from wtforms.validators import InputRequired
 
 application = flask.Flask(__name__)
+application.config['WTF_CSRF_ENABLED'] = False  # TODO: Obviously this.
 jsglue = flask_jsglue.JSGlue(application)
 
 
@@ -102,10 +91,12 @@ def success_response(results=None):
     return flask.jsonify(results)
 
 class SourceCode(object):
-    def __init__(self, filename, source_code=None):
-        self.filename = filename
+    def __init__(self, repo_owner, repo, filepath, source_code=None):
+        self.repo_owner = repo_owner
+        self.repo = repo
+        self.filepath = filepath
         if source_code is None:
-            with open('tests/{}'.format(filename), 'r') as source_file:
+            with open(filepath, 'r') as source_file:
                 source_code = source_file.read()
         lexer = PythonLexer()
         formatter = CodeHtmlFormatter(
@@ -128,61 +119,80 @@ def homepage():
 
 @application.route("/view-source/<owner>/<repo>/<path:filepath>", methods=['GET'])
 def view_source(owner, repo, filepath):
-    filename = os.path.basename(filepath)
-    repo_url = 'https://api.github.com/repos/kennethreitz/requests'
+    repo_url = 'https://api.github.com/repos/{0}/{1}'.format(owner, repo)
     gh_resp = requests.get('{0}/contents/{1}'.format(repo_url, filepath))
     gh_json = gh_resp.json()
     source_contents = gh_json['content']
     source_code = base64.b64decode(source_contents)
-    source = SourceCode(filename, source_code=source_code)
+    source = SourceCode(owner, repo, filepath, source_code=source_code)
     return flask.render_template('view-source.jinja', source=source)
 
 @application.route("/get-annotations", methods=['POST'])
 def get_annotations():
-    filename = flask.request.form.get('filename', None)
-    if not filename:
+    form = SourceSpecifierForm(flask.request.form)
+    if not form.validate():
         return bad_request_response(message='You must provide a filename.')
 
-    query = tinydb.Query()
-    annotations = database.search(query.filename == filename)
+    annotations = database.search(form.get_query())
     return flask.jsonify(annotations)
+
+class SourceSpecifierForm(flask_wtf.FlaskForm):
+    repo_owner = StringField('Repository Owner', [InputRequired()])
+    repo = StringField('Repository', [InputRequired()])
+    filepath = StringField('Filepath', [InputRequired()])
+
+    def get_query(self):
+        Source = tinydb.Query()
+        return (
+            (Source.repo_owner == self.repo_owner.data) &
+            (Source.repo == self.repo.data) &
+            (Source.filepath == self.filepath.data)
+            )
+
+class AnnotationSpecifierForm(SourceSpecifierForm):
+    line_number = StringField('Line number', [InputRequired()])
+
+    def get_query(self):
+        Annot = tinydb.Query()
+        return (
+            (Annot.repo_owner == self.repo_owner.data) &
+            (Annot.repo == self.repo.data) &
+            (Annot.filepath == self.filepath.data) &
+            (Annot.line_number == self.line_number.data)
+            )
+
+class AnnotationForm(AnnotationSpecifierForm):
+    content = StringField('Content', [InputRequired()])
 
 
 @application.route("/save-annotation", methods=['POST'])
 def save_annotation():
-    filename = flask.request.form.get('filename', None)
-    line_number = flask.request.form.get('line-number', None)
-    content = flask.request.form.get('content', None)
-
-    if None in [filename, line_number, content]:
+    form = AnnotationForm(flask.request.form)
+    if not form.validate():
         return bad_request_response(message='You must provide appropriate data.')
 
-    query = tinydb.Query()
-    query = (query.filename == filename) & (query['line-number'] == line_number)
+    query = form.get_query()
     if database.contains(query):
-        database.update({'content': content}, query)
+        database.update({'content': form.content}, query)
     else:
         database.insert({
-            'filename': filename,
-            'line-number': line_number,
-            'content': content
+            'repo_owner': form.repo_owner.data,
+            'repo': form.repo.data,
+            'filepath': form.filepath.data,
+            'line_number': form.line_number.data,
+            'content': form.content.data
         })
     return success_response()
 
 @application.route("/delete-annotation", methods=['POST'])
 def delete_annotation():
-    # TODO: In general we need to implement CSRF
-    # Here we are assuming you are deleting the annotation, but we are not
-    # checking that the content is the same, that is, that we have not updated
-    # the content from elsewhere.
-    filename = flask.request.form.get('filename', None)
-    line_number = flask.request.form.get('line-number', None)
+    form = AnnotationSpecifierForm(flask.request.form)
 
-    if None in [filename, line_number]:
+    if not form.validate():
         return bad_request_response(message='You must provide appropriate data.')
 
-    query = tinydb.Query()
-    query = (query.filename == filename) & (query['line-number'] == line_number)
+    query = form.get_query()
+    # TODO: If there is no such thing in the database what happens?
     database.remove(query)
     return success_response()
 

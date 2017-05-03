@@ -4,7 +4,7 @@
 
 body{ background: #ffffff; }
 
-.annotation { 
+.annotation {
     background-color: #6193e2;
     border: solid black 1px;
     display: flex;

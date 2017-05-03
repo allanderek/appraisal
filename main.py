@@ -25,6 +25,7 @@ class CodeHtmlFormatter(HtmlFormatter):
 
 
 import click
+import jinja2
 
 @click.group()
 def appraisal():
@@ -37,14 +38,14 @@ def appraisal():
 def highlight(input_filename, output_filename):
     with open(input_filename, 'r') as source_file:
         source_code = source_file.read()
-        lexer = PythonLexer()
-        formatter = CodeHtmlFormatter(
-            full=False,
-            linenos=False,
-            output_filename=output_filename
-            )
-        with open(output_filename, 'w') as output_file:
-            output = pygments.highlight(source_code, lexer, formatter, output_file)
+    source = SourceCode(input_filename, source_code=source_code)
+    env = jinja2.Environment(
+        loader=jinja2.PackageLoader('main', 'templates/'),
+        autoescape=jinja2.select_autoescape(['html', 'xml'])
+        )
+    template = env.get_template('view-source.jinja')
+    with open(output_filename, 'w') as outfile:
+        outfile.write(template.render(source=source))
 
 import tinydb
 

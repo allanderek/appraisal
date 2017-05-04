@@ -1,3 +1,6 @@
 venv/
 outputs/
 generated/
+ghostdriver.log
+.cache
+htmlcov/

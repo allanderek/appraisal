@@ -7,6 +7,11 @@ Pygments==2.2.0
 WTForms==2.1
 Werkzeug==0.12.1
 click==6.7
+coverage==4.3.4
 itsdangerous==0.24
+py==1.4.33
+pytest==3.0.7
+pytest-cov==2.4.0
 requests==2.13.0
+selenium==3.4.1
 tinydb==3.2.3

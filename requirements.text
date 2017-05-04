@@ -1,9 +1,12 @@
 Flask==0.12.1
 Flask-JSGlue==0.3.1
+Flask-WTF==0.14.2
 Jinja2==2.9.6
 MarkupSafe==1.0
 Pygments==2.2.0
+WTForms==2.1
 Werkzeug==0.12.1
 click==6.7
 itsdangerous==0.24
+requests==2.13.0
 tinydb==3.2.3

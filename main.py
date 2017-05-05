@@ -58,7 +58,10 @@ def set_database(db_file='play.json', reset=False):
     global database
     database_filename = generated_file_path(db_file)
     database = tinydb.TinyDB(database_filename)
+    if reset:
+        database.purge()
 set_database()
+
 
 def has_extension(filename, extension):
     ext = os.path.splitext(filename)[-1].lower()
@@ -182,7 +185,7 @@ def save_annotation():
 
     query = form.get_query()
     if database.contains(query):
-        database.update({'content': form.content}, query)
+        database.update({'content': form.content.data}, query)
     else:
         database.insert({
             'repo_owner': form.repo_owner.data,
@@ -556,6 +559,18 @@ def test_main(client):
     client.click('.code-line-container')
     client.log_current_page()
     client.css_exists('.annotation')
+    annotation_content = 'Here I am to save the day.'
+    client.fill_in_text_input_by_css('.annotation .annotation-input', annotation_content)
+    client.click('.annotation .annotation-output') # Just to force the AJAX update.
+    query = tinydb.Query()
+    query = (
+        (query['content'] == annotation_content) &
+        (query['repo'] == 'requests') &
+        (query['repo_owner'] == 'kennethreitz') &
+        (query['filepath'] == '.coveragerc') &
+        (query['content'] == annotation_content)
+        )
+    assert database.contains(query)
 
 @appraisal.command('test')
 def my_test_command():

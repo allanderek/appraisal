@@ -317,6 +317,13 @@ class BrowserClient(object):
         filename = generated_file_path(basename + '.png')
         self.driver.save_screenshot(filename)
 
+    def get_browser_log(self):
+        # Note: this is mostly for debugging your tests. I have not used it
+        # much and would expect this to change. We would probably like to
+        # integrate this into 'log_current_page' somehow.
+        log_name = 'har' # 'har' undocumented but returns more than 'browser'
+        return client.driver.get_log('har')
+
     def visit_url(self, url):
         self.driver.get(url)
 
@@ -546,10 +553,7 @@ def test_main(client):
     assert 'Welcome to Appraisal Board' in client.page_source
 
     client.click('.source-file-link')
-    client.css_exists('.code-line-container')
     client.click('.code-line-container')
-    # print(client.driver.get_log('browser'))
-    # print(client.driver.get_log('har'))
     client.log_current_page()
     client.css_exists('.annotation')
 

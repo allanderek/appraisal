@@ -579,5 +579,10 @@ def my_test_command():
     named like this to avoid a spurious warning from pytest."""
     pytest.main(['main.py', '--cov=.', '--cov-report=html'])
 
+@appraisal.command()
+def flake8():
+    """Simply run this command to check the source code."""
+    os.system('flake8 main.py')
+
 if __name__ == '__main__':
     appraisal()

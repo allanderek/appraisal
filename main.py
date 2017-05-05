@@ -317,10 +317,17 @@ class BrowserClient(object):
         filename = generated_file_path(basename + '.png')
         self.driver.save_screenshot(filename)
 
+    def visit_url(self, url):
+        self.driver.get(url)
+
+    def visit_view(self, *args, **kwargs):
+        """ So you can say: `client.visit_view('homepage')`"""
+        self.visit_url(make_url(*args, **kwargs))
+
     def scroll_to_element(self, element):
         self.driver.execute_script("return arguments[0].scrollIntoView();", element)
 
-    def wait_for_condition(self, condition, timeout=5):
+    def wait_for_condition(self, condition, timeout=5, failure_message=None):
         """Wait for the given condition and if it does not occur then log the
         the current page and fail the current test. If timeout is given then
         that is how long we wait.
@@ -331,7 +338,8 @@ class BrowserClient(object):
             return element
         except TimeoutException:
             self.log_current_page()
-            pytest.fail("Waiting on a condition timed out, current page logged.")
+            message = failure_message or "Waiting on a condition timed out, current page logged."
+            pytest.fail(message)
 
     def wait_for_element_to_be_clickable(self, selector, **kwargs):
         element_spec = (By.CSS_SELECTOR, selector)
@@ -356,15 +364,8 @@ class BrowserClient(object):
     def css_exists(self, css_selector):
         """ Asserts that there is an element that matches the given
         css selector."""
-        # We do not actually need to do anything special here, if the
-        # element does not exist we fill fail with a NoSuchElementException
-        # however we wrap this up in a pytest.fail because the error message
-        # is then a bit nicer to read.
-        try:
-            self.wait_for_element(css_selector)
-        except NoSuchElementException:
-            self.log_current_page()
-            pytest.fail('Element "{0}" not found! Current page logged.'.format(css_selector))
+        failure_message = 'Element "{0}" not found! Current page logged.'.format(css_selector)
+        self.wait_for_element(css_selector, failure_message=failure_message)
 
     def check_css_selector_doesnt_exist(self, css_selector):
         """Assert that there is no element that matches the given css selector.
@@ -537,13 +538,20 @@ def client(request):
     request.addfinalizer(client.finalise)
     return client
 
-
 def test_main(client):
     port = application.config['TEST_SERVER_PORT']
     application.config['SERVER_NAME'] = 'localhost:{}'.format(port)
 
-    client.driver.get(make_url('homepage'))
+    client.visit_view('homepage')
     assert 'Welcome to Appraisal Board' in client.page_source
+
+    client.click('.source-file-link')
+    client.css_exists('.code-line-container')
+    client.click('.code-line-container')
+    # print(client.driver.get_log('browser'))
+    # print(client.driver.get_log('har'))
+    client.log_current_page()
+    client.css_exists('.annotation')
 
 @appraisal.command('test')
 def my_test_command():

@@ -1,4 +1,4 @@
-/* global $ showdown hljs Flask source_information*/
+/* global $ showdown hljs Flask source_information */
 
 function delete_annotation(){
     var $annotation = $(this).closest('.annotation');
@@ -37,15 +37,15 @@ function save_annotation(){
 }
 
 function add_annotation($code_line, content){
-    var $annotation = $(`
-        <div class="annotation">
-            <div class="annotation-toolbar">
-                <button class="toggle-annotation-editor">Toggle editor</button>
-                <button class="delete-annotation">delete</button>
-            </div>
-            <textarea class="annotation-input" />
-            <div class="annotation-output"></div>
-        </div>`);
+    var $annotation = $('\
+        <div class="annotation">\
+            <div class="annotation-toolbar">\
+                <button class="toggle-annotation-editor">Toggle editor</button>\
+                <button class="delete-annotation">delete</button>\
+            </div>\
+            <textarea class="annotation-input" />\
+            <div class="annotation-output"></div>\
+        </div>');
     $code_line.before($annotation);
     $annotation.attr('code-line', $code_line.attr('id'));
     $annotation.find('.delete-annotation').click(delete_annotation);
@@ -111,9 +111,6 @@ function add_annotation($code_line, content){
         $annot_input.toggle();
     });
 }
-
-
-var source_filename = '';
 
 function get_annotations(){
     $.ajax({type: "POST",

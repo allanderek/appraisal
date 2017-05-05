@@ -18,7 +18,6 @@
 
   <script src="https://cdn.rawgit.com/showdownjs/showdown/1.6.3/dist/showdown.min.js"></script>
   <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.11.0/highlight.min.js"></script>
-  <script src="{{url_for('static', filename='annotate.js')}}"></script>
   <script type='text/javascript'>
       var source_information = {
         'repo_owner': "{{source.repo_owner}}",
@@ -26,4 +25,5 @@
         'filepath': "{{source.filepath}}"
       };
   </script>
+  <script src="{{url_for('static', filename='annotate.js')}}"></script>
 {% endblock page_scripts %}

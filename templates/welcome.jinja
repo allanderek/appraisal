@@ -10,7 +10,8 @@
 <ul>
     {% for file_info in tree['tree'] %}
         <li>
-            <a href="{{url_for('view_source',
+            <a class="source-file-link"
+               href="{{url_for('view_source',
                                owner='kennethreitz',
                                repo='requests',
                                filepath=file_info['path'])}}">

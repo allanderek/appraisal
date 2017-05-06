@@ -52,15 +52,29 @@ def generated_file_path(additional_path):
     generated_dir = os.path.join(basedir, 'generated/')
     return os.path.join(generated_dir, additional_path)
 
-import tinydb
-database = None
-def set_database(db_file='play.json', reset=False):
-    global database
+from pony import orm
+
+database = orm.Database()
+def set_database(db_file='play.sqlite', reset=False):
     database_filename = generated_file_path(db_file)
-    database = tinydb.TinyDB(database_filename)
-    if reset:
-        database.purge()
-set_database()
+    # Note that for testing this could maybe be :memory: but then again
+    # sometimes it is nice to look at the database after testing has finished.
+    # We may have to actually delete the file if reset is true.
+    database.bind('sqlite', database_filename, create_db=True)
+
+class Annotation(database.Entity):
+    repo = orm.Required(str)
+    repo_owner = orm.Required(str)
+    filepath = orm.Required(str)
+    line_number = orm.Required(str)
+    content = orm.Required(str)
+
+    def jsonify(self):
+        return { 'repo': self.repo,
+                 'repo_owner': self.repo_owner,
+                 'filepath': self.filepath,
+                 'line_number': self.line_number,
+                 'content': self.content }
 
 
 def has_extension(filename, extension):
@@ -69,7 +83,7 @@ def has_extension(filename, extension):
 
 @appraisal.command()
 def reset_database():
-    database.purge()
+    set_database(reset=True)
 
 import flask
 import flask_jsglue
@@ -145,32 +159,34 @@ def get_annotations():
     if not form.validate():
         return bad_request_response(message='You must provide a filename.')
 
-    annotations = database.search(form.get_query())
-    return flask.jsonify(annotations)
+    with orm.db_session:
+        annotations = [a.jsonify() for a in  form.annotations_query()]
+    return success_response(results={'annotations': annotations})
 
 class SourceSpecifierForm(flask_wtf.FlaskForm):
     repo_owner = StringField('Repository Owner', [InputRequired()])
     repo = StringField('Repository', [InputRequired()])
     filepath = StringField('Filepath', [InputRequired()])
 
-    def get_query(self):
-        Source = tinydb.Query()
-        return (
-            (Source.repo_owner == self.repo_owner.data) &
-            (Source.repo == self.repo.data) &
-            (Source.filepath == self.filepath.data)
+    def annotations_query(self):
+        return orm.select(
+            a for a in Annotation
+            if a.repo_owner == self.repo_owner.data and
+               a.repo == self.repo.data and
+               a.filepath == self.filepath.data
             )
+
 
 class AnnotationSpecifierForm(SourceSpecifierForm):
     line_number = StringField('Line number', [InputRequired()])
 
-    def get_query(self):
-        Annot = tinydb.Query()
-        return (
-            (Annot.repo_owner == self.repo_owner.data) &
-            (Annot.repo == self.repo.data) &
-            (Annot.filepath == self.filepath.data) &
-            (Annot.line_number == self.line_number.data)
+    def annotations_query(self):
+        return orm.select(
+            a for a in Annotation
+            if a.repo_owner == self.repo_owner.data and
+               a.repo == self.repo.data and
+               a.filepath == self.filepath.data and
+               a.line_number == self.line_number.data
             )
 
 class AnnotationForm(AnnotationSpecifierForm):
@@ -183,17 +199,26 @@ def save_annotation():
     if not form.validate():
         return bad_request_response(message='You must provide appropriate data.')
 
-    query = form.get_query()
-    if database.contains(query):
-        database.update({'content': form.content.data}, query)
-    else:
-        database.insert({
-            'repo_owner': form.repo_owner.data,
-            'repo': form.repo.data,
-            'filepath': form.filepath.data,
-            'line_number': form.line_number.data,
-            'content': form.content.data
-        })
+    with orm.db_session:
+        annotation = Annotation.get(
+            repo = form.repo.data,
+            repo_owner = form.repo_owner.data,
+            filepath = form.filepath.data,
+            line_number = form.line_number.data,
+            content = form.content.data
+            )
+        if annotation:
+            # For now assume one.
+            annotation.content = form.content.data
+        else:
+            annotation = Annotation(
+                repo = form.repo.data,
+                repo_owner = form.repo_owner.data,
+                filepath = form.filepath.data,
+                line_number = form.line_number.data,
+                content = form.content.data
+                )
+        orm.commit()
     return success_response()
 
 @application.route("/delete-annotation", methods=['POST'])
@@ -203,9 +228,17 @@ def delete_annotation():
     if not form.validate():
         return bad_request_response(message='You must provide appropriate data.')
 
-    query = form.get_query()
-    # TODO: If there is no such thing in the database what happens?
-    database.remove(query)
+    with orm.db_session:
+        annotation = Annotation.get(
+            repo = form.repo.data,
+            repo_owner = form.repo_owner.data,
+            filepath = form.filepath.data,
+            line_number = form.line_number.data,
+            content = form.content.data
+            )
+        if annotation:
+            annotation.delete()
+            commit()
     return success_response()
 
 @appraisal.command()
@@ -254,6 +287,8 @@ def get_new_unique_identifier():
 def setup_testing(db_file='test.db'):
     reset = db_file == 'test.db'
     set_database(db_file=db_file, reset=reset)
+    # So I *think* we only do that if we're resetting the database?
+    database.generate_mapping(create_tables=True)
     application.config['TESTING'] = True
 
 
@@ -562,15 +597,16 @@ def test_main(client):
     annotation_content = 'Here I am to save the day.'
     client.fill_in_text_input_by_css('.annotation .annotation-input', annotation_content)
     client.click('.annotation .annotation-output') # Just to force the AJAX update.
-    query = tinydb.Query()
-    query = (
-        (query['content'] == annotation_content) &
-        (query['repo'] == 'requests') &
-        (query['repo_owner'] == 'kennethreitz') &
-        (query['filepath'] == '.coveragerc') &
-        (query['content'] == annotation_content)
-        )
-    assert database.contains(query)
+    with orm.db_session:
+        annotation = Annotation.get(
+            repo = 'requests',
+            repo_owner = 'kennethreitz',
+            filepath = '.coveragerc',
+            line_number = 'code-line-0',
+            content = annotation_content
+            )
+    assert annotation
+
 
 @appraisal.command('test')
 def my_test_command():

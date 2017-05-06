@@ -61,8 +61,10 @@ def set_database(db_file='play.sqlite', reset=False):
     # sometimes it is nice to look at the database after testing has finished.
     # We may have to actually delete the file if reset is true.
     database.bind('sqlite', database_filename, create_db=True)
-    # So I *think* we only do that if we're resetting the database?
     database.generate_mapping(create_tables=True)
+    if reset:
+        database.drop_all_tables(with_all_data=True)
+        database.create_tables()
 
 class Annotation(database.Entity):
     repo = orm.Required(str)

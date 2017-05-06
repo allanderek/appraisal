@@ -321,8 +321,15 @@ class BrowserClient(object):
             }.get(browser)
         self.driver = driver_class()
         self.driver.set_window_size(1200, 760)
+        # We may get rather a lot of noise with the selenium logger set to debug
+        # so we set it to info instead.
         selenium_logger = logging.getLogger(name="selenium.webdriver.remote.remote_connection")
         selenium_logger.setLevel(logging.INFO)
+
+        logfilename = generated_file_path('tests.log')
+        logging.basicConfig(filename=logfilename)
+        self.logger = logging.getLogger('browser-client')
+        self.logger.setLevel(logging.INFO)
 
     def finalise(self):
         self.driver.close()
@@ -589,13 +596,18 @@ def test_main(client):
     port = application.config['TEST_SERVER_PORT']
     application.config['SERVER_NAME'] = 'localhost:{}'.format(port)
 
+    client.logger.info('Visit the homepage')
     client.visit_view('homepage')
     assert 'Welcome to Appraisal Board' in client.page_source
 
+    client.logger.info('Click on the first source file link to view source')
     client.click('.source-file-link')
+
+    client.logger.info('Click on a source file line to create an annotation')
     client.click('.code-line-container')
-    client.log_current_page()
     client.css_exists('.annotation')
+    client.logger.info("""Fill in the text of the annotation and check that it \
+    and check that it exists in the database.""")
     annotation_content = 'Here I am to save the day.'
     client.fill_in_text_input_by_css('.annotation .annotation-input', annotation_content)
     client.click('.annotation .annotation-output') # Just to force the AJAX update.
@@ -611,10 +623,10 @@ def test_main(client):
             content = annotation_content
             )
     assert annotation
-    # Refresh this page and check that the annotation is still there.
+    client.logger.info("Refresh this page and check that the annotation is still there.")
     client.visit_view('view_source', repo=repo, owner=repo_owner, filepath=filepath)
     client.css_exists('.annotation')
-    # Delete the annotation and check that it is not in the database.
+    client.logger.info('Delete the annotation and check that it is not in the database.')
     client.click('.delete-annotation')
     with orm.db_session:
         annotation = Annotation.get(

@@ -599,15 +599,32 @@ def test_main(client):
     annotation_content = 'Here I am to save the day.'
     client.fill_in_text_input_by_css('.annotation .annotation-input', annotation_content)
     client.click('.annotation .annotation-output') # Just to force the AJAX update.
+    repo = 'requests'
+    repo_owner = 'kennethreitz'
+    filepath = '.coveragerc'
     with orm.db_session:
         annotation = Annotation.get(
-            repo = 'requests',
-            repo_owner = 'kennethreitz',
-            filepath = '.coveragerc',
+            repo = repo,
+            repo_owner = repo_owner,
+            filepath = filepath,
             line_number = 'code-line-0',
             content = annotation_content
             )
     assert annotation
+    # Refresh this page and check that the annotation is still there.
+    client.visit_view('view_source', repo=repo, owner=repo_owner, filepath=filepath)
+    client.css_exists('.annotation')
+    # Delete the annotation and check that it is not in the database.
+    client.click('.delete-annotation')
+    with orm.db_session:
+        annotation = Annotation.get(
+            repo = repo,
+            repo_owner = repo_owner,
+            filepath = filepath,
+            line_number = 'code-line-0',
+            content = annotation_content
+            )
+    assert annotation is None
 
 
 @appraisal.command('test')

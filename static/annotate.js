@@ -117,7 +117,7 @@ function get_annotations(){
       url: Flask.url_for('get_annotations'),
       data: source_information,
       success: function(data){
-          $.each(data, function(index, annotation){
+          $.each(data['annotations'], function(index, annotation){
             var $code_line = $('#' + annotation['line_number']);
             add_annotation($code_line, annotation['content']);
           });

@@ -61,6 +61,8 @@ def set_database(db_file='play.sqlite', reset=False):
     # sometimes it is nice to look at the database after testing has finished.
     # We may have to actually delete the file if reset is true.
     database.bind('sqlite', database_filename, create_db=True)
+    # So I *think* we only do that if we're resetting the database?
+    database.generate_mapping(create_tables=True)
 
 class Annotation(database.Entity):
     repo = orm.Required(str)
@@ -234,11 +236,10 @@ def delete_annotation():
             repo_owner = form.repo_owner.data,
             filepath = form.filepath.data,
             line_number = form.line_number.data,
-            content = form.content.data
             )
         if annotation:
             annotation.delete()
-            commit()
+            orm.commit()
     return success_response()
 
 @appraisal.command()
@@ -251,6 +252,7 @@ def runserver():
                 filename = os.path.join(dirname, filename)
                 if os.path.isfile(filename):
                     extra_files.append(filename)
+    set_database()
     application.run(
         port=8080,
         host='0.0.0.0',
@@ -287,8 +289,6 @@ def get_new_unique_identifier():
 def setup_testing(db_file='test.db'):
     reset = db_file == 'test.db'
     set_database(db_file=db_file, reset=reset)
-    # So I *think* we only do that if we're resetting the database?
-    database.generate_mapping(create_tables=True)
     application.config['TESTING'] = True
 
 

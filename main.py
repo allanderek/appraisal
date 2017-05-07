@@ -271,8 +271,8 @@ from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.common.exceptions import NoSuchElementException, InvalidElementStateException, TimeoutException
-# from selenium.webdriver.common.action_chains import ActionChains
-# from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.keys import Keys
 import pytest
 # Currently just used for the temporary hack to quit the phantomjs process
 # see below in quit_driver.
@@ -610,7 +610,13 @@ def test_main(client):
     and check that it exists in the database.""")
     annotation_content = 'Here I am to save the day.'
     client.fill_in_text_input_by_css('.annotation .annotation-input', annotation_content)
-    client.click('.annotation .annotation-output') # Just to force the AJAX update.
+
+    # This is to force the annotation to be saved by removing the focus from the
+    # annotation input. TODO: Obviously this would only work for the browser-client
+    # I don't know if perhaps an ApplicationClient should just mimic the selenium
+    # ActionChains protocol?
+    ActionChains(client.driver).key_down(Keys.CONTROL).key_up(Keys.CONTROL).perform()
+
     repo = 'requests'
     repo_owner = 'kennethreitz'
     filepath = '.coveragerc'

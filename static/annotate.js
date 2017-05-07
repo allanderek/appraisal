@@ -102,6 +102,9 @@ function add_annotation($code_line, content){
                However, I think once we start getting more to that level then we
                should consider using something like code-mirror.
              */
+        } else if (event.ctrlKey){
+            event.preventDefault();
+            $annot_input.blur();
         }
         });
 

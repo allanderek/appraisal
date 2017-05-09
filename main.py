@@ -609,7 +609,11 @@ def test_main(client):
     client.logger.info("""Fill in the text of the annotation and check that it \
     and check that it exists in the database.""")
     annotation_content = 'Here I am to save the day.'
-    client.fill_in_text_input_by_css('.annotation .annotation-input', annotation_content)
+
+    # So note in particular we are *not* sending the keys to the specific annotation
+    # text input, since we are testing that creating an annotation should automatically
+    # give the focus to the annotation's input box.
+    ActionChains(client.driver).send_keys(annotation_content).perform()
 
     # This is to force the annotation to be saved by removing the focus from the
     # annotation input. TODO: Obviously this would only work for the browser-client

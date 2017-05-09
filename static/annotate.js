@@ -36,7 +36,7 @@ function save_annotation(){
     });
 }
 
-function add_annotation($code_line, content){
+function add_annotation($code_line, content, focus_annot_textarea){
     var $annotation = $('\
         <div class="annotation">\
             <div class="annotation-toolbar">\
@@ -51,6 +51,9 @@ function add_annotation($code_line, content){
     $annotation.find('.delete-annotation').click(delete_annotation);
     var $annot_input = $annotation.find('.annotation-input');
     $annot_input.val(content);
+    if (focus_annot_textarea){
+        $annot_input.focus();
+    }
     var $annot_output = $annotation.find('.annotation-output');
 
     // Set up the keyup event to format the common-mark into HTML
@@ -123,7 +126,7 @@ function get_annotations(){
       success: function(data){
           $.each(data['annotations'], function(index, annotation){
             var $code_line = $('#' + annotation['line_number']);
-            add_annotation($code_line, annotation['content']);
+            add_annotation($code_line, annotation['content'], false);
           });
       },
       error: function(data){
@@ -133,7 +136,7 @@ function get_annotations(){
 }
 
 function add_new_annotation(){
-    add_annotation($(this), "");
+    add_annotation($(this), "", true);
 }
 
 function activate_line(line){

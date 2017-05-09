@@ -16,6 +16,10 @@ body{ background: #ffffff; }
     text-decoration: underline;
 }
 
+.active-line{
+    border: 1px solid red;
+}
+
 pre{
     margin: 0;
 }

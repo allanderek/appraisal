@@ -67,6 +67,7 @@ function add_annotation($code_line, content){
     // blank (in particular for a 'new_annotation').
     $annot_input.trigger('keyup');
     $annot_input.keydown(function(event){
+        event.stopPropagation();
         var keyCode = event.keyCode || event.which;
 
         if (keyCode == 9) {
@@ -135,7 +136,32 @@ function add_new_annotation(){
     add_annotation($(this), "");
 }
 
+function activate_line(line){
+    var line_number = "#code-line-" + line;
+    $('.code-line-container').removeClass('active-line');
+    $('.code-line-container' + line_number).addClass('active-line');
+}
+
+function document_key_press(event){
+    var $active_line = $(".active-line");
+    var key_code_a = 65;
+    var key_code_j = 74;
+    var key_code_k = 75;
+    if (event.which === key_code_j){
+        $active_line.nextAll('.code-line-container').first().addClass('active-line');
+        $active_line.removeClass('active-line');
+    } else if (event.which === key_code_k){
+        $active_line.prevAll('.code-line-container').first().addClass('active-line');
+        $active_line.removeClass('active-line');
+    } else if (event.which === key_code_a){
+        add_annotation($active_line, '');
+    }
+    return true;
+}
+
 $(document).ready(function(){
     $('.code-line-container').click(add_new_annotation);
     get_annotations();
+    activate_line(0); // Assumes there is at least one line.
+    $(document).keydown(document_key_press);
 });

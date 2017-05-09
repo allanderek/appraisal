@@ -157,7 +157,7 @@ function document_key_press(event){
         $active_line.prevAll('.code-line-container').first().addClass('active-line');
         $active_line.removeClass('active-line');
     } else if (event.which === key_code_a){
-        add_annotation($active_line, '');
+        add_annotation($active_line, '', true);
     }
     return true;
 }

@@ -72,8 +72,9 @@ function add_annotation($code_line, content, focus_annot_textarea){
     $annot_input.keydown(function(event){
         event.stopPropagation();
         var keyCode = event.keyCode || event.which;
+        var tab_key_code = 9;
 
-        if (keyCode == 9) {
+        if (keyCode == tab_key_code) {
             event.preventDefault();
 
             var textarea = this;
@@ -158,6 +159,7 @@ function document_key_press(event){
         $active_line.removeClass('active-line');
     } else if (event.which === key_code_a){
         add_annotation($active_line, '', true);
+        return false;
     }
     return true;
 }

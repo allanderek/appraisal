@@ -36,6 +36,7 @@ function save_annotation(){
     });
 }
 
+
 function add_annotation($code_line, content, focus_annot_textarea){
     var $annotation = $('\
         <div class="annotation">\
@@ -146,9 +147,11 @@ function activate_line(line){
     $('.code-line-container' + line_number).addClass('active-line');
 }
 
+
 function document_key_press(event){
     var $active_line = $(".active-line");
     var key_code_a = 65;
+    var key_code_h = 72;
     var key_code_j = 74;
     var key_code_k = 75;
     if (event.which === key_code_j){
@@ -159,6 +162,12 @@ function document_key_press(event){
         $active_line.removeClass('active-line');
     } else if (event.which === key_code_a){
         add_annotation($active_line, '', true);
+        return false;
+    } else if (event.which === key_code_h){
+        var $next_annotation = $active_line.nextAll('.annotation').first();
+        $active_line.removeClass('active-line');
+        $next_annotation.nextAll('.code-line-container').first().addClass('active-line');
+        $next_annotation.find('.annotation-input').focus();
         return false;
     }
     return true;

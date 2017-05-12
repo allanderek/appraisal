@@ -292,6 +292,8 @@ def setup_testing(db_file='test.db'):
     reset = db_file == 'test.db'
     set_database(db_file=db_file, reset=reset)
     application.config['TESTING'] = True
+    port = application.config['TEST_SERVER_PORT']
+    application.config['SERVER_NAME'] = 'localhost:{}'.format(port)
 
 
 class ServerThread(threading.Thread):
@@ -593,9 +595,6 @@ def client(request):
     return client
 
 def test_main(client):
-    port = application.config['TEST_SERVER_PORT']
-    application.config['SERVER_NAME'] = 'localhost:{}'.format(port)
-
     client.logger.info('Visit the homepage')
     client.visit_view('homepage')
     assert 'Welcome to Appraisal Board' in client.page_source

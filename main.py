@@ -706,6 +706,7 @@ def test_main(client):
             )
     assert annotation is None
 
+
 def test_report(client):
     repo = 'appraisal'
     repo_owner = 'allanderek'
@@ -733,12 +734,28 @@ def test_report(client):
 
     client.logger.info('Check that the report has all four annotations that we have created.')
 
-@appraisal.command('test')
-def my_test_command():
+
+@appraisal.command(
+    'test',
+    context_settings=dict(ignore_unknown_options=True, allow_extra_args=True)
+    )
+@click.pass_context
+def my_test_command(context):
     """This is the command to run in order to simply run the test suite.
     Called from the command-line as `python main.py test`, the function is
-    named like this to avoid a spurious warning from pytest."""
-    pytest.main(['main.py', '--cov=.', '--cov-report=html'])
+    named like this to avoid a spurious warning from pytest. We also accept
+    additional arguments which are passed through to pytest, for example if you
+    wish to run only tests which have 'report' in their name you can do:
+    'python main.py test -k report'
+    or if you wish to show the locals in a traceback:
+    'python main.py test -l'
+    You can get more information on the arguments you can pass to pytest with:
+    'py.test --help'
+    """
+    command = ['main.py', '--cov=.', '--cov-report=html']
+    for item in context.args:
+        command.append(item)
+    pytest.main(command)
 
 @appraisal.command()
 def flake8():

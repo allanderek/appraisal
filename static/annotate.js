@@ -36,6 +36,16 @@ function save_annotation(){
     });
 }
 
+function process_annotation_output($annot_input, $annot_output){
+    var converter = new showdown.Converter();
+    var html = converter.makeHtml($annot_input.val());
+    $annot_output.html(html);
+    $annot_output.find('code').each(function(index){
+        hljs.highlightBlock(this);
+    }
+    );
+}
+
 
 function add_annotation($code_line, content, focus_annot_textarea){
     var $annotation = $('\
@@ -59,13 +69,7 @@ function add_annotation($code_line, content, focus_annot_textarea){
 
     // Set up the keyup event to format the common-mark into HTML
     $annot_input.keyup(function(){
-        var converter = new showdown.Converter();
-        var html = converter.makeHtml($annot_input.val());
-        $annot_output.html(html);
-        $annot_output.find('code').each(function(index){
-            hljs.highlightBlock(this);
-        }
-        );
+        process_annotation_output($annot_input, $annot_output);
     });
     // Trigger that event immediately, we could skip this if 'content' is
     // blank (in particular for a 'new_annotation').

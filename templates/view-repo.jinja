@@ -1,0 +1,28 @@
+{% extends "base.jinja" %}
+{% set active_page = "view-repo" %}
+
+{% block page_css %}
+{% endblock page_css %}
+
+{% block main_content %}
+<h1>View Repository: </h1>
+
+<ul>
+    {% for file_info in tree['tree'] %}
+        <li>
+            <a class="source-file-link"
+               href="{{url_for('view_source',
+                               owner=repo.owner,
+                               repo=repo.name,
+                               filepath=file_info['path'])}}">
+                {{file_info['path']}}
+            </a>
+        </li>
+    {% endfor %}
+</ul>
+
+
+{% endblock main_content %}
+
+{% block page_scripts %}
+{% endblock page_scripts %}

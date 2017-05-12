@@ -1,0 +1,27 @@
+{% extends "base.jinja" %}
+{% set active_page = "repo-report" %}
+
+{% block page_css %}
+{% endblock page_css %}
+
+{% block main_content %}
+<h1>Report for: {{repo.name}} (by {{repo.owner}})</h1>
+
+<a id="view-repo" href="{{url_for('view_repo', owner=repo.owner, repo_name=repo.name)}}">view repo</a>
+
+<ul>
+    {% for annotation in annotations %}
+        <li>
+            <div class="annotation">
+                <div class="annotation-input">{{annotation.content}}</div>
+                <div class="annotation-output"></div>
+            </div>
+        </li>
+    {% endfor %}
+</ul>
+
+
+{% endblock main_content %}
+
+{% block page_scripts %}
+{% endblock page_scripts %}

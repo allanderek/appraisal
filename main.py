@@ -137,14 +137,64 @@ class SourceCode(object):
 
 @application.route("/", methods=['GET'])
 def homepage():
-    repository_url = 'https://api.github.com/repos/kennethreitz/requests'
+    form = RepoUrlForm()
+    return flask.render_template('welcome.jinja', repo_url_form=form)
+
+
+class Repo(object):
+    def __init__(self, owner, name):
+        self.owner = owner
+        self.name = name
+
+@application.route('/view-repo/<owner>/<repo_name>', methods=['GET'])
+def view_repo(owner, repo_name):
+    repository_url = 'https://api.github.com/repos/{}/{}'.format(owner, repo_name)
     gh_resp = requests.get('{0}/git/trees/master'.format(repository_url))
     master = gh_resp.json()
     gh_resp = requests.get(
         '{0}/git/trees/{1}'.format(repository_url, master['sha']),
         params={'recursive': 1})
     tree = gh_resp.json()
-    return flask.render_template('welcome.jinja', tree=tree)
+    repo = Repo(owner, repo_name)
+    return flask.render_template('view-repo.jinja', tree=tree, repo=repo)
+
+
+class RepoUrlForm(flask_wtf.FlaskForm):
+    repo_url = StringField('Repository URL:', [InputRequired()])
+
+@application.route('/view-repo-from-url', methods=['POST'])
+def view_repo_from_url():
+    # A sample repo-url:
+    # https://github.com/allanderek/appraisal/
+    form = RepoUrlForm(flask.request.form)
+    if not form.validate():
+        flask.flash('You must provide a github url')
+        return flask.redirect(flask.url_for('homepage'))
+    repo_url = form.repo_url.data
+    fields = repo_url.split('/')
+    try:
+        github_com_index = fields.index('github.com')
+    except ValueError:
+        flask.flash('You must provide a github url')
+        return flask.redirect(flask.url_for('homepage'))
+    repo_owner, repo_name = fields[github_com_index + 1 : github_com_index + 3]
+    if not repo_owner or not repo_name:
+        flask.flash('Your github url must contain a repository own and repo name.')
+        return flask.redirect(flask.url_for('homepage'))
+    return flask.redirect(flask.url_for('view_repo', owner=repo_owner, repo_name=repo_name))
+
+
+@application.route('/view-repo-report/<owner>/<repo_name>', methods=['GET'])
+def view_repo_report(owner, repo_name):
+    with orm.db_session:
+        query = orm.select(
+            a for a in Annotation
+            if a.repo_owner == owner and
+               a.repo == repo_name
+            )
+        annotations = list(query)
+    repo = Repo(owner, repo_name)
+    return flask.render_template('repo-report.jinja', annotations=annotations, repo=repo)
 
 
 @application.route("/view-source/<owner>/<repo>/<path:filepath>", methods=['GET'])
@@ -164,7 +214,7 @@ def get_annotations():
         return bad_request_response(message='You must provide a filename.')
 
     with orm.db_session:
-        annotations = [a.jsonify() for a in  form.annotations_query()]
+        annotations = [a.jsonify() for a in form.annotations_query()]
     return success_response(results={'annotations': annotations})
 
 class SourceSpecifierForm(flask_wtf.FlaskForm):
@@ -371,7 +421,7 @@ class BrowserClient(object):
         # much and would expect this to change. We would probably like to
         # integrate this into 'log_current_page' somehow.
         log_name = 'har' # 'har' undocumented but returns more than 'browser'
-        return client.driver.get_log('har')
+        return client.driver.get_log(log_name)
 
     def visit_url(self, url):
         self.driver.get(url)
@@ -594,10 +644,21 @@ def client(request):
     request.addfinalizer(client.finalise)
     return client
 
+def check_view_repository(client, repo_owner, repo):
+    repo_url = 'https://github.com/{}/{}'.format(repo_owner, repo)
+    form_input = OrderedDict(repo_url = repo_url)
+    form_input['submit'] = True
+    form_selector = '#view-repo-form'
+    client.fill_in_form(form_selector, form_input)
+
 def test_main(client):
     client.logger.info('Visit the homepage')
     client.visit_view('homepage')
     assert 'Welcome to Appraisal Board' in client.page_source
+
+    repo_owner = 'kennethreitz'
+    repo = 'requests'
+    check_view_repository(client, repo_owner, repo)
 
     client.logger.info('Click on the first source file link to view source')
     client.click('.source-file-link')
@@ -620,8 +681,6 @@ def test_main(client):
     # ActionChains protocol?
     ActionChains(client.driver).key_down(Keys.CONTROL).key_up(Keys.CONTROL).perform()
 
-    repo = 'requests'
-    repo_owner = 'kennethreitz'
     filepath = '.coveragerc'
     with orm.db_session:
         annotation = Annotation.get(
@@ -647,6 +706,32 @@ def test_main(client):
             )
     assert annotation is None
 
+def test_report(client):
+    repo = 'appraisal'
+    repo_owner = 'allanderek'
+    filepath = 'main.py'
+
+    client.logger.info('Visit the homepage')
+    client.visit_view('homepage')
+    assert 'Welcome to Appraisal Board' in client.page_source
+
+    check_view_repository(client, repo_owner, repo)
+
+    client.logger.info('Click on source file link for "main.py".')
+    client.click('.source-file-link')
+
+    client.logger.info('Create a couple of annotations.')
+
+    client.logger.info('Click on the link to go back upwards to the containing directory')
+
+    client.logger.info('Click on the link to view the templates/base.jinja source.')
+
+    client.logger.info('Create a couple more annotations')
+
+    client.logger.info('Click on view report link for this repository')
+    client.click('#view-report')
+
+    client.logger.info('Check that the report has all four annotations that we have created.')
 
 @appraisal.command('test')
 def my_test_command():

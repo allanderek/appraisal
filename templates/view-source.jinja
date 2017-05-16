@@ -9,7 +9,7 @@
 {% block main_content %}
   <ul>
     <li><a id="view-report" href="{{url_for('view_repo_report', owner=source.repo_owner, repo_name=source.repo)}}">View report</a></li>
-    <li><a id="view-repo" href="{{url_for('view_repo', owner=source.repo_owner, repo_name=source.repo)}}">View report</a></li>
+    <li><a id="view-repo" href="{{url_for('view_repo', owner=source.repo_owner, repo_name=source.repo)}}">View repo</a></li>
   </ul>
   {{source.highlighted_source}}
 {% endblock main_content %}

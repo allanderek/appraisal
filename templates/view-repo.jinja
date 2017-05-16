@@ -10,14 +10,18 @@
 <ul>
     {% for file_info in tree['tree'] %}
         <li>
-            <a class="source-file-link"
-               path="{{file_info['path']}}"
-               href="{{url_for('view_source',
-                               owner=repo.owner,
-                               repo=repo.name,
-                               filepath=file_info['path'])}}">
+            {% if file_info['type'] == 'blob' %}
+                <a class="source-file-link"
+                   path="{{file_info['path']}}"
+                   href="{{url_for('view_source',
+                                   owner=repo.owner,
+                                   repo=repo.name,
+                                   filepath=file_info['path'])}}">
+                    {{file_info['path']}}
+                </a>
+            {% elif file_info['type'] == 'tree' %}
                 {{file_info['path']}}
-            </a>
+            {% endif %}
         </li>
     {% endfor %}
 </ul>

@@ -653,20 +653,38 @@ def check_view_repository(client, repo_owner, repo):
     form_selector = '#view-repo-form'
     client.fill_in_form(form_selector, form_input)
 
-def create_annotation(client, content, line_number):
-    code_line_id = "code-line-{}".format(line_number)
-    client.click('#{}.code-line-container'.format(code_line_id))
-    # So note in particular we are *not* sending the keys to the specific annotation
-    # text input, since we are testing that creating an annotation should automatically
-    # give the focus to the annotation's input box.
-    ActionChains(client.driver).send_keys(content).perform()
+class AnnotDesc(object):
+    """This is used to store the description of an annotation during testing,
+    it is *not* stored (at least not directly) in the database. The whole point
+    is that we check the application is storing the equivalent annotation in the
+    database (or we check that it is *not* if that is the behaviour we want such
+    as for a deleted annotation)."""
+    def __init__(self, content, line_number):
+        self.content = content
+        self.line_number = line_number
+        self.code_line_id = "code-line-{}".format(line_number)
 
-    # This is to force the annotation to be saved by removing the focus from the
-    # annotation input. TODO: Obviously this would only work for the browser-client
-    # I don't know if perhaps an ApplicationClient should just mimic the selenium
-    # ActionChains protocol?
-    ActionChains(client.driver).key_down(Keys.CONTROL).key_up(Keys.CONTROL).perform()
+    def create_annotation(self, client):
+        client.click('#{}.code-line-container'.format(self.code_line_id))
+        # So note in particular we are *not* sending the keys to the specific annotation
+        # text input, since we are testing that creating an annotation should automatically
+        # give the focus to the annotation's input box.
+        ActionChains(client.driver).send_keys(self.content).perform()
 
+        # This is to force the annotation to be saved by removing the focus from the
+        # annotation input. TODO: Obviously this would only work for the browser-client
+        # I don't know if perhaps an ApplicationClient should just mimic the selenium
+        # ActionChains protocol?
+        ActionChains(client.driver).key_down(Keys.CONTROL).key_up(Keys.CONTROL).perform()
+
+    def get_db_annotation(self, **kwargs):
+        with orm.db_session:
+            db_annotation = Annotation.get(
+                line_number = self.code_line_id,
+                content = self.content,
+                **kwargs
+                )
+        return db_annotation
 
 def click_source_file(client, filepath):
     css = '.source-file-link[path="{}"]'.format(filepath)
@@ -691,39 +709,30 @@ def test_main(client):
     client.css_exists('.annotation')
     client.logger.info("""Fill in the text of the annotation and check that it \
     and check that it exists in the database.""")
-    annotation_content = 'Here I am to save the day.'
-    code_line_number = '3'
-    create_annotation(client, annotation_content, code_line_number)
+    annotation = AnnotDesc('Here I am to save the day.', '3')
+    annotation.create_annotation(client)
+    assert annotation.get_db_annotation(
+        repo = repo,
+        repo_owner = repo_owner,
+        filepath = filepath
+        )
 
-    with orm.db_session:
-        annotation = Annotation.get(
-            repo = repo,
-            repo_owner = repo_owner,
-            filepath = filepath,
-            line_number = 'code-line-{}'.format(code_line_number),
-            content = annotation_content
-            )
-    assert annotation
     client.logger.info("Refresh this page and check that the annotation is still there.")
     client.visit_view('view_source', repo=repo, owner=repo_owner, filepath=filepath)
     client.css_exists('.annotation')
     client.logger.info('Delete the annotation and check that it is not in the database.')
     client.click('.delete-annotation')
-    with orm.db_session:
-        annotation = Annotation.get(
-            repo = repo,
-            repo_owner = repo_owner,
-            filepath = filepath,
-            line_number = 'code-line-0',
-            content = annotation_content
-            )
-    assert annotation is None
+    db_annotation = annotation.get_db_annotation(
+        repo = repo,
+        repo_owner = repo_owner,
+        filepath = filepath
+        )
+    assert db_annotation is None
 
 
 def test_report(client):
     repo = 'appraisal'
     repo_owner = 'allanderek'
-    filepath = 'main.py'
 
     client.logger.info('Visit the homepage')
     client.visit_view('homepage')
@@ -732,23 +741,39 @@ def test_report(client):
     check_view_repository(client, repo_owner, repo)
 
     client.logger.info('Click on source file link for "main.py".')
-    click_source_file(client, filepath)
+    main_filepath = 'main.py'
+    click_source_file(client, main_filepath)
 
     client.logger.info('Create a couple of annotations.')
-    annotation_content = "This is line number 3"
-    create_annotation(client, annotation_content, '3')
+    main_annotations = [
+        AnnotDesc('This is line number 3', '3'),
+        AnnotDesc('This is line number 5', '5')
+        ]
+    for annotation in main_annotations:
+        annotation.create_annotation(client)
+
 
     client.logger.info('Click on the link to go back upwards to the containing directory')
+    client.click('#view-repo')
 
     client.logger.info('Click on the link to view the templates/base.jinja source.')
+    base_template_filepath = 'templates/base.jinja'
+    click_source_file(client, base_template_filepath)
 
     client.logger.info('Create a couple more annotations')
+    base_template_annotations = [
+        AnnotDesc('This is line number 8', '8'),
+        AnnotDesc('This is line number 10', '10')
+        ]
+    for annotation in base_template_annotations:
+        annotation.create_annotation(client)
 
     client.logger.info('Click on view report link for this repository')
     client.click('#view-report')
 
     client.logger.info('Check that the report has all four annotations that we have created.')
-
+    contents = [a.content for a in main_annotations + base_template_annotations]
+    client.check_css_contains_texts('.annotation', *contents)
 
 @appraisal.command(
     'test',

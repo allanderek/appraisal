@@ -7,8 +7,11 @@
 {% endblock page_css %}
 
 {% block main_content %}
-    <a id="view-report" href="{{url_for('view_repo_report', owner=source.repo_owner, repo_name=source.repo)}}">View report</a>
-    {{source.highlighted_source}}
+  <ul>
+    <li><a id="view-report" href="{{url_for('view_repo_report', owner=source.repo_owner, repo_name=source.repo)}}">View report</a></li>
+    <li><a id="view-repo" href="{{url_for('view_repo', owner=source.repo_owner, repo_name=source.repo)}}">View report</a></li>
+  </ul>
+  {{source.highlighted_source}}
 {% endblock main_content %}
 
 {% block page_scripts %}

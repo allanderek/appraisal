@@ -506,9 +506,11 @@ class BrowserClient(object):
         once waited upon).
         """
         try:
+            if 'failure_message' not in kwargs:
+                kwargs['failure_message'] = "Attempting to click element: {}".format(selector)
             element = self.wait_for_element(selector, **kwargs)
             self.scroll_to_element(element)
-            self.wait_for_element_to_be_clickable(selector)
+            self.wait_for_element_to_be_clickable(selector, **kwargs)
             element.click()
         except NoSuchElementException:
             if not kwargs.get('no_fail', False):
@@ -651,29 +653,13 @@ def check_view_repository(client, repo_owner, repo):
     form_selector = '#view-repo-form'
     client.fill_in_form(form_selector, form_input)
 
-def test_main(client):
-    client.logger.info('Visit the homepage')
-    client.visit_view('homepage')
-    assert 'Welcome to Appraisal Board' in client.page_source
-
-    repo_owner = 'kennethreitz'
-    repo = 'requests'
-    check_view_repository(client, repo_owner, repo)
-
-    client.logger.info('Click on the first source file link to view source')
-    client.click('.source-file-link')
-
-    client.logger.info('Click on a source file line to create an annotation')
-    client.click('.code-line-container')
-    client.css_exists('.annotation')
-    client.logger.info("""Fill in the text of the annotation and check that it \
-    and check that it exists in the database.""")
-    annotation_content = 'Here I am to save the day.'
-
+def create_annotation(client, content, line_number):
+    code_line_id = "code-line-{}".format(line_number)
+    client.click('#{}.code-line-container'.format(code_line_id))
     # So note in particular we are *not* sending the keys to the specific annotation
     # text input, since we are testing that creating an annotation should automatically
     # give the focus to the annotation's input box.
-    ActionChains(client.driver).send_keys(annotation_content).perform()
+    ActionChains(client.driver).send_keys(content).perform()
 
     # This is to force the annotation to be saved by removing the focus from the
     # annotation input. TODO: Obviously this would only work for the browser-client
@@ -681,13 +667,40 @@ def test_main(client):
     # ActionChains protocol?
     ActionChains(client.driver).key_down(Keys.CONTROL).key_up(Keys.CONTROL).perform()
 
-    filepath = '.coveragerc'
+
+def click_source_file(client, filepath):
+    css = '.source-file-link[path="{}"]'.format(filepath)
+    client.click(css)
+
+
+def test_main(client):
+    client.logger.info('Visit the homepage')
+    client.visit_view('homepage')
+    assert 'Welcome to Appraisal Board' in client.page_source
+
+    repo_owner = 'kennethreitz'
+    repo = 'requests'
+    filepath = 'setup.py'
+    check_view_repository(client, repo_owner, repo)
+
+    client.logger.info('Click on the first source file link to view source')
+    click_source_file(client, filepath)
+
+    client.logger.info('Click on a source file line to create an annotation')
+    client.click('.code-line-container')
+    client.css_exists('.annotation')
+    client.logger.info("""Fill in the text of the annotation and check that it \
+    and check that it exists in the database.""")
+    annotation_content = 'Here I am to save the day.'
+    code_line_number = '3'
+    create_annotation(client, annotation_content, code_line_number)
+
     with orm.db_session:
         annotation = Annotation.get(
             repo = repo,
             repo_owner = repo_owner,
             filepath = filepath,
-            line_number = 'code-line-0',
+            line_number = 'code-line-{}'.format(code_line_number),
             content = annotation_content
             )
     assert annotation
@@ -719,9 +732,11 @@ def test_report(client):
     check_view_repository(client, repo_owner, repo)
 
     client.logger.info('Click on source file link for "main.py".')
-    client.click('.source-file-link')
+    click_source_file(client, filepath)
 
     client.logger.info('Create a couple of annotations.')
+    annotation_content = "This is line number 3"
+    create_annotation(client, annotation_content, '3')
 
     client.logger.info('Click on the link to go back upwards to the containing directory')
 

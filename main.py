@@ -793,6 +793,8 @@ def my_test_command(context):
     'py.test --help'
     """
     command = ['main.py', '--cov=.', '--cov-report=html']
+    if not any('maxfail' in a for a in context.args):
+        command.append('--maxfail=1')
     for item in context.args:
         command.append(item)
     pytest.main(command)

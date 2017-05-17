@@ -159,20 +159,46 @@ function document_key_press(event){
     var key_code_h = 72;
     var key_code_j = 74;
     var key_code_k = 75;
+
+    function scroll_to_element($target){
+        $('html, body').scrollTop($target.offset().top - 40);
+    }
+
+    function swap_active_line($current, $target){
+        if($target.length){
+            $target.addClass('active-line');
+            $current.removeClass('active-line');
+        }
+    }
+
+    function move_active_line(direction){
+        var container_css = '.code-line-container';
+        var $new_active_line = null;
+        if (direction === 'up'){
+            $new_active_line = $active_line.prevAll(container_css).first();
+        } else if (direction === 'down'){
+            $new_active_line = $active_line.nextAll(container_css).first();
+        }
+        if ($new_active_line.length){
+            swap_active_line($active_line, $new_active_line);
+            scroll_to_element($new_active_line);
+        }
+    }
+
     if (event.which === key_code_j){
-        $active_line.nextAll('.code-line-container').first().addClass('active-line');
-        $active_line.removeClass('active-line');
+        move_active_line('down');
     } else if (event.which === key_code_k){
-        $active_line.prevAll('.code-line-container').first().addClass('active-line');
-        $active_line.removeClass('active-line');
+        move_active_line('up');
     } else if (event.which === key_code_a){
         add_annotation($active_line, '', true);
         return false;
     } else if (event.which === key_code_h){
         var $next_annotation = $active_line.nextAll('.annotation').first();
-        $active_line.removeClass('active-line');
-        $next_annotation.nextAll('.code-line-container').first().addClass('active-line');
-        $next_annotation.find('.annotation-input').focus();
+        if ($next_annotation.length){
+            $next_annotation.find('.annotation-input').focus();
+            $new_active_line = $next_annotation.nextAll('.code-line-container').first();
+            swap_active_line($active_line, $new_active_line);
+        }
         return false;
     }
     return true;

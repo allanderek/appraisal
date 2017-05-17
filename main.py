@@ -259,7 +259,6 @@ def save_annotation():
             repo_owner = form.repo_owner.data,
             filepath = form.filepath.data,
             line_number = form.line_number.data,
-            content = form.content.data
             )
         if annotation:
             # For now assume one.
@@ -609,8 +608,10 @@ class BrowserClient(object):
             self.log_current_page(message=message)
             pytest.fail(message + ": " + e.msg)
 
-    def fill_in_text_input_by_css(self, input_css, input_text):
+    def fill_in_text_input_by_css(self, input_css, input_text, clear=False):
         input_element = self.driver.find_element_by_css_selector(input_css)
+        if clear:
+            input_element.clear()
         input_element.send_keys(input_text)
 
 
@@ -677,13 +678,17 @@ class AnnotDesc(object):
         # ActionChains protocol?
         ActionChains(client.driver).key_down(Keys.CONTROL).key_up(Keys.CONTROL).perform()
 
+    def update_annotation(self, client, new_text, clear=True):
+        self.content = new_text
+        input_css = '.annotation[code-line="{}"] .annotation-input'.format(self.code_line_id)
+        client.fill_in_text_input_by_css(input_css, new_text, clear=clear)
+        ActionChains(client.driver).key_down(Keys.CONTROL).key_up(Keys.CONTROL).perform()
+
     def get_db_annotation(self, **kwargs):
         with orm.db_session:
-            db_annotation = Annotation.get(
-                line_number = self.code_line_id,
-                content = self.content,
-                **kwargs
-                )
+            defaults = dict(content=self.content, line_number=self.code_line_id)
+            defaults.update(kwargs)
+            db_annotation = Annotation.get(**defaults)
         return db_annotation
 
 def click_source_file(client, filepath):
@@ -709,7 +714,8 @@ def test_main(client):
     client.css_exists('.annotation')
     client.logger.info("""Fill in the text of the annotation and check that it \
     and check that it exists in the database.""")
-    annotation = AnnotDesc('Here I am to save the day.', '3')
+    first_text = 'Here I am to save the day.'
+    annotation = AnnotDesc(first_text, '3')
     annotation.create_annotation(client)
     assert annotation.get_db_annotation(
         repo = repo,
@@ -720,6 +726,25 @@ def test_main(client):
     client.logger.info("Refresh this page and check that the annotation is still there.")
     client.visit_view('view_source', repo=repo, owner=repo_owner, filepath=filepath)
     client.css_exists('.annotation')
+
+    client.logger.info("""Update the annotation, and check that we do not have two
+    annotations in the database.""")
+    new_annotation_text = 'Stand back, I know regular expressions'
+    client.log_current_page()
+    annotation.update_annotation(client, new_annotation_text)
+    assert annotation.get_db_annotation(
+        repo = repo,
+        repo_owner = repo_owner,
+        filepath = filepath
+        )
+    assert not annotation.get_db_annotation(
+        # There should not be 'second' annotation with the orignal text.
+        content = first_text,
+        repo = repo,
+        repo_owner = repo_owner,
+        filepath = filepath
+        )
+
     client.logger.info('Delete the annotation and check that it is not in the database.')
     client.click('.delete-annotation')
     db_annotation = annotation.get_db_annotation(

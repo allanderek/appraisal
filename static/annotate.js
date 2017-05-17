@@ -78,6 +78,7 @@ function add_annotation($code_line, content, focus_annot_textarea){
         event.stopPropagation();
         var keyCode = event.keyCode || event.which;
         var tab_key_code = 9;
+        var escape_focus_key_code = 77;
 
         if (keyCode == tab_key_code) {
             event.preventDefault();
@@ -112,7 +113,7 @@ function add_annotation($code_line, content, focus_annot_textarea){
                However, I think once we start getting more to that level then we
                should consider using something like code-mirror.
              */
-        } else if (event.ctrlKey){
+        } else if (keyCode == escape_focus_key_code && event.ctrlKey){
             event.preventDefault();
             $annot_input.blur();
         }

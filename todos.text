@@ -1,4 +1,4 @@
-[] Using ctrl to move the focus from an annotation's input box is terrible, in particular we cannot use other, existing, key-combinations such as Ctrl+v for pasting.
+[x] Using ctrl to move the focus from an annotation's input box is terrible, in particular we cannot use other, existing, key-combinations such as Ctrl+v for pasting.
 [] When using keys to move within a document we need to automatically scroll.
 [x] Bug: If you update the content of an annotation, it simply adds a new annotation, the first error is that you look in the database using the content supplied in the form, but more generally I think we should be updating based on annotation-id, so that we can have multiple annotations per-line, as you may actually want that, even by the same user.
 

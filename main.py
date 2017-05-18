@@ -99,6 +99,50 @@ def has_extension(filename, extension):
 def reset_database():
     set_database(reset=True)
 
+
+def github_file_contents(owner, repo, filepath):
+    repo_url = 'https://api.github.com/repos/{0}/{1}'.format(owner, repo)
+    gh_resp = requests.get('{0}/contents/{1}'.format(repo_url, filepath))
+    gh_json = gh_resp.json()
+    source_contents = gh_json['content']
+    source_code = base64.b64decode(source_contents)
+    return source_code
+
+def github_repo_contents(owner, repo_name):
+    repository_url = 'https://api.github.com/repos/{}/{}'.format(owner, repo_name)
+    gh_resp = requests.get('{0}/git/trees/master'.format(repository_url))
+    master = gh_resp.json()
+    gh_resp = requests.get(
+        '{0}/git/trees/{1}'.format(repository_url, master['sha']),
+        params={'recursive': 1})
+    tree = gh_resp.json()
+    return tree
+
+
+def mock_github():
+    with open("main.py", "r") as main_file:
+        mock_file_contents = main_file.read()
+    mock_github_file_contents = mock.create_autospec(
+        github_file_contents,
+        return_value=mock_file_contents)
+    file_contents_patcher = mock.patch('main.github_file_contents', mock_github_file_contents)
+
+    mock_repo_contents = {
+        'tree': [
+            {'type': 'blob', 'path': 'setup.py'},
+            {'type': 'blob', 'path': 'main.py'},
+            {'type': 'tree', 'path': 'templates'},
+            {'type': 'blob', 'path': 'templates/base.jinja'},
+        ]
+    }
+    mock_github_repo_contents = mock.create_autospec(
+        github_repo_contents,
+        return_value=mock_repo_contents)
+    repo_contents_patcher = mock.patch('main.github_repo_contents', mock_github_repo_contents)
+    file_contents_patcher.start()
+    repo_contents_patcher.start()
+
+
 import flask
 import flask_jsglue
 import flask_wtf
@@ -161,13 +205,7 @@ class Repo(object):
 
 @application.route('/view-repo/<owner>/<repo_name>', methods=['GET'])
 def view_repo(owner, repo_name):
-    repository_url = 'https://api.github.com/repos/{}/{}'.format(owner, repo_name)
-    gh_resp = requests.get('{0}/git/trees/master'.format(repository_url))
-    master = gh_resp.json()
-    gh_resp = requests.get(
-        '{0}/git/trees/{1}'.format(repository_url, master['sha']),
-        params={'recursive': 1})
-    tree = gh_resp.json()
+    tree = github_repo_contents(owner, repo_name)
     repo = Repo(owner, repo_name)
     return flask.render_template('view-repo.jinja', tree=tree, repo=repo)
 
@@ -224,11 +262,7 @@ def view_repo_report(owner, repo_name):
 
 @application.route("/view-source/<owner>/<repo>/<path:filepath>", methods=['GET'])
 def view_source(owner, repo, filepath):
-    repo_url = 'https://api.github.com/repos/{0}/{1}'.format(owner, repo)
-    gh_resp = requests.get('{0}/contents/{1}'.format(repo_url, filepath))
-    gh_json = gh_resp.json()
-    source_contents = gh_json['content']
-    source_code = base64.b64decode(source_contents)
+    source_code = github_file_contents(owner, repo, filepath)
     source = SourceCode(owner, repo, filepath, source_code=source_code)
     return flask.render_template('view-source.jinja', source=source)
 
@@ -362,13 +396,13 @@ import uuid
 def get_new_unique_identifier():
     return uuid.uuid4().hex
 
-
 def setup_testing(db_file='test.db'):
     reset = db_file == 'test.db'
     set_database(db_file=db_file, reset=reset)
     application.config['TESTING'] = True
     port = application.config['TEST_SERVER_PORT']
     application.config['SERVER_NAME'] = 'localhost:{}'.format(port)
+    mock_github()
 
 
 class ServerThread(threading.Thread):

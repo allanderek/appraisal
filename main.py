@@ -119,13 +119,14 @@ def github_repo_contents(owner, repo_name):
     return tree
 
 
-def mock_github():
+def mock_github_api(module_name='main'):
     with open("main.py", "r") as main_file:
         mock_file_contents = main_file.read()
     mock_github_file_contents = mock.create_autospec(
         github_file_contents,
         return_value=mock_file_contents)
-    file_contents_patcher = mock.patch('main.github_file_contents', mock_github_file_contents)
+    to_patch = '{}.github_file_contents'.format(module_name)
+    file_contents_patcher = mock.patch(to_patch, mock_github_file_contents)
 
     mock_repo_contents = {
         'tree': [
@@ -138,7 +139,8 @@ def mock_github():
     mock_github_repo_contents = mock.create_autospec(
         github_repo_contents,
         return_value=mock_repo_contents)
-    repo_contents_patcher = mock.patch('main.github_repo_contents', mock_github_repo_contents)
+    to_patch = '{}.github_repo_contents'.format(module_name)
+    repo_contents_patcher = mock.patch(to_patch, mock_github_repo_contents)
     file_contents_patcher.start()
     repo_contents_patcher.start()
 
@@ -371,7 +373,8 @@ def delete_annotation():
     return success_response()
 
 @appraisal.command()
-def runserver():
+@click.option('--mock-github/--no-mock-github', default=True)
+def runserver(mock_github):
     extra_dirs = ['static/', 'templates/']
     extra_files = extra_dirs[:]
     for extra_dir in extra_dirs:
@@ -381,6 +384,10 @@ def runserver():
                 if os.path.isfile(filename):
                     extra_files.append(filename)
     set_database()
+
+    if mock_github:
+        mock_github_api(module_name='__main__')
+
     application.run(
         port=8080,
         host='0.0.0.0',
@@ -414,13 +421,14 @@ import uuid
 def get_new_unique_identifier():
     return uuid.uuid4().hex
 
-def setup_testing(db_file='test.db'):
+def setup_testing(db_file='test.db', mock_github=True):
     reset = db_file == 'test.db'
     set_database(db_file=db_file, reset=reset)
     application.config['TESTING'] = True
     port = application.config['TEST_SERVER_PORT']
     application.config['SERVER_NAME'] = 'localhost:{}'.format(port)
-    mock_github()
+    if mock_github:
+        mock_github_api()
 
 
 class ServerThread(threading.Thread):

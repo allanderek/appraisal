@@ -10,14 +10,15 @@
 <a id="view-repo" href="{{url_for('view_repo', owner=repo.owner, repo_name=repo.name)}}">view repo</a>
 
 <ul>
-    {% for filepath, annotations in repo.annotated_files.items() %}
-    <li> {{ filepath }}
+    {% for annotated_file in repo.annotated_files %}
+    <li> {{ annotated_file.filepath }}
         <ul>
-            {% for annotation in annotations %}
+            {% for annotation in annotated_file.annotations %}
                 <li>
                     <div class="annotation">
                         <div class="annotation-input">{{annotation.content}}</div>
                         <div class="annotation-output"></div>
+                        <div class="annotation-context-code">{{annotation.context_code}}</div>
                     </div>
                 </li>
             {% endfor %}

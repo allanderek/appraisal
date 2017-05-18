@@ -189,8 +189,6 @@ class SourceCode(object):
             )
         self.highlighted_source = pygments.highlight(source_code, lexer, formatter)
 
-    # def get_highlighted_lines(self, start, length):
-
 
 @application.route("/", methods=['GET'])
 def homepage():
@@ -198,10 +196,29 @@ def homepage():
     return flask.render_template('welcome.jinja', repo_url_form=form)
 
 
+class AnnotatedFile(object):
+    def __init__(self, filepath, annotations):
+        self.filepath = filepath
+        self.annotations = annotations
+
+    def fill_context(self, repo_owner, repo_name):
+        source_code = github_file_contents(repo_owner, repo_name, self.filepath)
+        self.source = SourceCode(repo_owner, repo_name, self.filepath, source_code=source_code)
+        highlighted_lines = self.source.highlighted_source.split("\n")
+        for annotation in self.annotations:
+            line_number = int(annotation.line_number.split('-')[-1])
+            annotation.context = highlighted_lines[line_number:line_number+3]
+
 class Repo(object):
     def __init__(self, owner, name):
         self.owner = owner
         self.name = name
+        self.annotated_files = []
+
+    def fill_context(self):
+        for annotated_file in self.annotated_files:
+            annotated_file.fill_context(self.owner, self.name)
+
 
 @application.route('/view-repo/<owner>/<repo_name>', methods=['GET'])
 def view_repo(owner, repo_name):
@@ -235,11 +252,6 @@ def view_repo_from_url():
     return flask.redirect(flask.url_for('view_repo', owner=repo_owner, repo_name=repo_name))
 
 
-class AnnotatedFile(object):
-    def __init__(self, filepath, annotations):
-        self.filepath = filepath
-        self.annotations = annotations
-
 @application.route('/view-repo-report/<owner>/<repo_name>', methods=['GET'])
 def view_repo_report(owner, repo_name):
     with orm.db_session:
@@ -253,9 +265,15 @@ def view_repo_report(owner, repo_name):
 
     # Create a dictionary mapping each filepath to the list of annotations
     # associated with it.
-    repo.annotated_files = collections.defaultdict(list)
+    file_annotations = collections.defaultdict(list)
     for annotation in annotations:
-        repo.annotated_files[annotation.filepath].append(annotation)
+        file_annotations[annotation.filepath].append(annotation)
+
+    repo.annotated_files = [
+        AnnotatedFile(fp, annots)
+        for fp, annots in file_annotations.items()
+        ]
+    repo.fill_context()
 
     return flask.render_template('repo-report.jinja', repo=repo)
 

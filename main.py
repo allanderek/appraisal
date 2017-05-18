@@ -19,9 +19,19 @@ class CodeHtmlFormatter(HtmlFormatter):
     def _wrap_pre_code(self, source):
         for line_number, (is_code, source_line) in enumerate(source):
             if is_code == 1:
-                source_line = """<pre id="code-line-{0}" class="code-line-container"
-                   ><code class="code-line">{1}</code></pre>""".format(line_number, source_line)
-            yield is_code, source_line
+                # Note, we are keeping this all exactly one line, hence the reason for
+                # for the strip since we must add the closing tags *after* the source line.
+                # This is so that we can later pick out *some* of the highlighted lines.
+                # I think there is probably a better way to do this and I will have a think
+                # about this, in particular to ask for an iterator/list from pygments, or
+                # alternatively to post-parse the highlighted source, but for now this allows
+                # us to show fragments of the code, eg below an annotation in the report.
+                open_pre = '<pre id="code-line-{0}" class="code-line-container">'.format(line_number)
+                open_code = '<code class="code-line">'
+                bare_line = source_line.rstrip('\n\r')
+                post_amble = '<br></code></pre>\n'
+                highlighted_line = "".join([open_pre, open_code, bare_line, post_amble])
+            yield is_code, highlighted_line
 
 
 import click
@@ -135,6 +145,9 @@ class SourceCode(object):
             )
         self.highlighted_source = pygments.highlight(source_code, lexer, formatter)
 
+    # def get_highlighted_lines(self, start, length):
+
+
 @application.route("/", methods=['GET'])
 def homepage():
     form = RepoUrlForm()
@@ -184,6 +197,11 @@ def view_repo_from_url():
     return flask.redirect(flask.url_for('view_repo', owner=repo_owner, repo_name=repo_name))
 
 
+class AnnotatedFile(object):
+    def __init__(self, filepath, annotations):
+        self.filepath = filepath
+        self.annotations = annotations
+
 @application.route('/view-repo-report/<owner>/<repo_name>', methods=['GET'])
 def view_repo_report(owner, repo_name):
     with orm.db_session:
@@ -194,7 +212,14 @@ def view_repo_report(owner, repo_name):
             )
         annotations = list(query)
     repo = Repo(owner, repo_name)
-    return flask.render_template('repo-report.jinja', annotations=annotations, repo=repo)
+
+    # Create a dictionary mapping each filepath to the list of annotations
+    # associated with it.
+    repo.annotated_files = collections.defaultdict(list)
+    for annotation in annotations:
+        repo.annotated_files[annotation.filepath].append(annotation)
+
+    return flask.render_template('repo-report.jinja', repo=repo)
 
 
 @application.route("/view-source/<owner>/<repo>/<path:filepath>", methods=['GET'])
@@ -313,6 +338,7 @@ def runserver():
 
 
 # Now for some testing.
+import collections
 from collections import OrderedDict
 import logging
 from selenium import webdriver
@@ -665,24 +691,26 @@ class AnnotDesc(object):
         self.line_number = line_number
         self.code_line_id = "code-line-{}".format(line_number)
 
+    def _key_out_to_trigger_save(self, client):
+        # This is to force the annotation to be saved by removing the focus from the
+        # annotation input. TODO: Obviously this would only work for the browser-client
+        # I don't know if perhaps an ApplicationClient should just mimic the selenium
+        # ActionChains protocol?
+        ActionChains(client.driver).key_down(Keys.CONTROL).key_down('m').key_up('m').key_up(Keys.CONTROL).perform()
+
     def create_annotation(self, client):
         client.click('#{}.code-line-container'.format(self.code_line_id))
         # So note in particular we are *not* sending the keys to the specific annotation
         # text input, since we are testing that creating an annotation should automatically
         # give the focus to the annotation's input box.
         ActionChains(client.driver).send_keys(self.content).perform()
-
-        # This is to force the annotation to be saved by removing the focus from the
-        # annotation input. TODO: Obviously this would only work for the browser-client
-        # I don't know if perhaps an ApplicationClient should just mimic the selenium
-        # ActionChains protocol?
-        ActionChains(client.driver).key_down(Keys.CONTROL).key_up(Keys.CONTROL).perform()
+        self._key_out_to_trigger_save(client)
 
     def update_annotation(self, client, new_text, clear=True):
         self.content = new_text
         input_css = '.annotation[code-line="{}"] .annotation-input'.format(self.code_line_id)
         client.fill_in_text_input_by_css(input_css, new_text, clear=clear)
-        ActionChains(client.driver).key_down(Keys.CONTROL).key_up(Keys.CONTROL).perform()
+        self._key_out_to_trigger_save(client)
 
     def get_db_annotation(self, **kwargs):
         with orm.db_session:

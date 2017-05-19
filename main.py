@@ -209,7 +209,7 @@ class AnnotatedFile(object):
         highlighted_lines = self.source.highlighted_source.split("\n")
         for annotation in self.annotations:
             line_number = int(annotation.line_number.split('-')[-1])
-            annotation.context = highlighted_lines[line_number:line_number+3]
+            annotation.context_code = "".join(highlighted_lines[line_number:line_number+3])
 
 class Repo(object):
     def __init__(self, owner, name):

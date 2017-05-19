@@ -24,6 +24,14 @@ pre{
     margin: 0;
 }
 
+.working-indicator{
+    display: none;
+}
+.working-indicator.working{
+    display: block;
+}
+
+
 .annotation-input{
     margin-top: 10px;
     width: 600px;

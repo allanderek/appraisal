@@ -5,15 +5,20 @@ function delete_annotation(){
     var data = source_information;
     data.line_number = $annotation.attr('code-line');
 
+    var $working = $annotation.find('.working-indicator');
+    $working.addClass('working');
+
     $.ajax({type: "POST",
       url: Flask.url_for('delete_annotation'),
       data: data,
       success: function(data){
           console.log('Successfully deleted the annotation');
+          $working.removeClass('working');
           $annotation.remove();
       },
       error: function(data){
           console.log('something went wrong');
+          $working.removeClass('working');
       }
     });
 }
@@ -24,13 +29,17 @@ function save_annotation(){
     var data = source_information;
     data.line_number = $annotation.attr('code-line');
     data.content = textarea.value;
+    var $working = $annotation.find('.working-indicator');
+    $working.addClass('working');
     $.ajax({type: "POST",
       url: Flask.url_for('save_annotation'),
       data: data,
       success: function(data){
+          $working.removeClass('working');
           console.log('Successfully saved the annotation');
       },
       error: function(data){
+          $working.removeClass('working');
           console.log('something went wrong');
       }
     });
@@ -53,6 +62,7 @@ function add_annotation($code_line, content, focus_annot_textarea){
             <div class="annotation-toolbar">\
                 <button class="toggle-annotation-editor">Toggle editor</button>\
                 <button class="delete-annotation">delete</button>\
+                <div class="working-indicator">Working</div>\
             </div>\
             <textarea class="annotation-input" />\
             <div class="annotation-output"></div>\

@@ -432,8 +432,8 @@ def setup_testing(db_file='test.db', mock_github=True):
 
 
 class ServerThread(threading.Thread):
-    def setup(self, db_file='test.db'):
-        setup_testing(db_file=db_file)
+    def setup(self, db_file='test.db', mock_github=True):
+        setup_testing(db_file=db_file, mock_github=mock_github)
         self.port = application.config['TEST_SERVER_PORT']
 
     def run(self):
@@ -446,9 +446,9 @@ class ServerThread(threading.Thread):
 class BrowserClient(object):
     """Interacts with a running instance of the application via animating a
     browser."""
-    def __init__(self, db_file='test.db', browser="phantom",):
+    def __init__(self, db_file='test.db', browser="phantom", mock_github=True):
         self.server_thread = ServerThread()
-        self.server_thread.setup(db_file=db_file)
+        self.server_thread.setup(db_file=db_file, mock_github=mock_github)
         self.server_thread.start()
 
         driver_class = {
@@ -726,9 +726,11 @@ def make_url(endpoint, **kwargs):
 
 @pytest.fixture(scope='module')
 def client(request):
-    options = ['db_file', 'browser']
+    options = ['db_file', 'browser', 'mock-github']
     kwargs = {k: request.config.getoption('--{}'.format(k), None) for k in options}
-    kwargs = {k:v for k,v in kwargs.items() if v is not None}
+    kwargs = {
+        k.replace('-', '_'): False if v == 'False' else v
+        for k,v in kwargs.items() if v is not None}
     client = BrowserClient(**kwargs)
     request.addfinalizer(client.finalise)
     return client
@@ -888,6 +890,7 @@ def test_report(client):
     contents = [a.content for a in main_annotations + base_template_annotations]
     client.check_css_contains_texts('.annotation', *contents)
 
+
 @appraisal.command(
     'test',
     context_settings=dict(ignore_unknown_options=True, allow_extra_args=True)
@@ -905,11 +908,17 @@ def my_test_command(context):
     You can get more information on the arguments you can pass to pytest with:
     'py.test --help'
     """
-    command = ['main.py', '--cov=.', '--cov-report=html']
-    if not any('maxfail' in a for a in context.args):
-        command.append('--maxfail=1')
-    for item in context.args:
-        command.append(item)
+    command = ['main.py'] + context.args
+    defaults = {
+        '--cov': '.',
+        '--cov-report': 'html',
+        '--maxfail': '1',
+        '--mock-github': 'True'
+    }
+    overridden = [a.split('=')[0] for a in context.args]
+    for key, value in defaults.items():
+        if key not in overridden:
+            command.append("{}={}".format(key, value))
     pytest.main(command)
 
 @appraisal.command()
